@@ -66,7 +66,7 @@ export class Agenda extends EventEmitter {
 	on(event: string, listener: (error: Error, job: JobWithId) => void): this;
 	on(event: 'ready', listener: () => void): this;
 	on(event: 'error', listener: (error: Error) => void): this;
-	on(event: string, listener: (...args) => void): this {
+	on(event: string, listener: (...args: any[]) => void): this {
 		if (this.forkedWorker && event !== 'ready' && event !== 'error') {
 			const warning = new Error(`calling on(${event}) during a forkedWorker has no effect!`);
 			console.warn(warning.message, warning.stack);
@@ -299,7 +299,9 @@ export class Agenda extends EventEmitter {
 	): void;
 	define(
 		name: string,
-		processor: ((job: Job) => Promise<void>) | ((job: Job, done) => void),
+		processor:
+			| ((job: Job) => Promise<void>)
+			| ((job: Job, done: void | ((error?: Error) => void)) => void),
 		options?: Partial<Pick<IJobDefinition, 'lockLimit' | 'lockLifetime' | 'concurrency'>> & {
 			priority?: JobPriority;
 		}

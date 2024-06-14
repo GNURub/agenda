@@ -16,7 +16,6 @@
     "strictPropertyInitialization": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "resolveJsonModule": true
   },
   "exclude": [
     "dist",

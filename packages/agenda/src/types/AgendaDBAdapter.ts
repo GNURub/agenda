@@ -1,4 +1,4 @@
-import { Job, JobWithId } from '../Agenda';
+import { Job, JobWithId } from '../Job';
 import { IJobParameters } from './JobParameters';
 
 export type FilterQuery<T, A = any> = Partial<Record<keyof T, A>>;
@@ -38,7 +38,7 @@ export interface AgendaDBAdapter {
 
 	saveJob<DATA = unknown | void>(
 		job: Job<DATA>,
-		lastModifiedBy: string | undefined
+		lastModifiedBy?: string
 	): Promise<{
 		job: Job<DATA>;
 		result: IJobParameters<DATA> | null;

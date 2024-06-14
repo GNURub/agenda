@@ -1,4 +1,12 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "defaultBase": "master"
+  "defaultBase": "master",
+  "targetDependencies": {
+    "build": [
+      {
+        "target": "build",
+        "projects": "packages"
+      }
+    ]
+  }
 }

@@ -1,7 +1,7 @@
 import debug from 'debug';
-import { version as agendaVersion } from '../../../package.json';
-import type { Agenda, JobWithId } from './Agenda';
-import { Job } from './Job';
+import { version as agendaVersion } from '../package.json';
+import type { Agenda } from './Agenda';
+import { Job, JobWithId } from './Job';
 import { JobProcessingQueue } from './JobProcessingQueue';
 import type { IAgendaJobStatus, IAgendaStatus } from './types/AgendaStatus';
 import type { IJobDefinition } from './types/JobDefinition';
@@ -23,7 +23,7 @@ export class JobProcessor {
 	private localQueueProcessing = 0;
 
 	async getStatus(fullDetails = false): Promise<IAgendaStatus> {
-		const jobStatus = Object.keys(this.jobStatus).reduce((obj, key) => {
+		const jobStatus = Object.keys(this.jobStatus).reduce((obj: any, key) => {
 			obj[key] = {
 				...this.jobStatus[key],
 				config: this.agenda.definitions[key]

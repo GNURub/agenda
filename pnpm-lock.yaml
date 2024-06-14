@@ -93,10 +93,19 @@ importers:
         specifier: ^3.2.1
         version: 3.4.4
 
+  packages/filesystem-adapter:
+    dependencies:
+      '@agenda/agenda':
+        specifier: '*'
+        version: link:../agenda
+      debug:
+        specifier: ~4.3.5
+        version: 4.3.5
+
   packages/mongodb-adapter:
     dependencies:
       '@agenda/agenda':
-        specifier: ^6.0.0-rc
+        specifier: '*'
         version: link:../agenda
       debug:
         specifier: ~4.3.5

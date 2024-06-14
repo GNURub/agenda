@@ -1,7 +1,7 @@
 {
-  "name": "@agenda/agenda",
+  "name": "@agenda/filesystem-adapter",
   "version": "6.0.0-rc",
-  "description": "Adapter for Agenda to use the Mongodb as a persistance layer",
+  "description": "Adapter for Agenda to use the filesystem as a persistance layer",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "publishConfig": {
@@ -38,10 +38,7 @@
     "url": "https://github.com/hokify/agenda/issues"
   },
   "dependencies": {
-    "luxon": "^3.2.1",
-    "cron-parser": "^4.9.0",
-    "date.js": "^0.3.3",
-    "debug": "~4.3.5",
-    "human-interval": "~2.0.1"
+    "@agenda/agenda": "*",
+    "debug": "~4.3.5"
   }
 }

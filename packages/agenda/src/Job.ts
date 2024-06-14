@@ -1,5 +1,6 @@
 import { ChildProcess, fork } from 'child_process';
-import * as date from 'date.js';
+// @ts-ignore
+import date from 'date.js';
 import debug from 'debug';
 import type { Agenda } from './Agenda';
 import type { DefinitionProcessor } from './types/JobDefinition';
@@ -91,14 +92,14 @@ export class Job<DATA = unknown | void> {
 	 * Given a job, turn it into an JobParameters object
 	 */
 	toJson(): IJobParameters {
-		const result = {} as IJobParameters;
+		const result: any = {};
 
 		for (const key of Object.keys(this.attrs)) {
 			if (Object.hasOwnProperty.call(this.attrs, key)) {
 				result[key] =
-					datefields.includes(key as TJobDatefield) && this.attrs[key]
-						? new Date(this.attrs[key])
-						: this.attrs[key];
+					datefields.includes(key as TJobDatefield) && this.attrs[key as TJobDatefield]
+						? new Date(this.attrs[key as TJobDatefield] as Date)
+						: this.attrs[key as TJobDatefield];
 			}
 		}
 

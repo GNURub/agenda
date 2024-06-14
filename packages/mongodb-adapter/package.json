@@ -38,7 +38,7 @@
     "url": "https://github.com/hokify/agenda/issues"
   },
   "dependencies": {
-    "@agenda/agenda": "^6.0.0-rc",
+    "@agenda/agenda": "*",
     "debug": "~4.3.5",
     "mongodb": "^6.7.0"
   }
