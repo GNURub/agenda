@@ -20,20 +20,16 @@ export class JobDbRepository {
 	}
 
 	getJobs(
-		query: Partial<IJobParameters>,
+		query: FilterQuery,
 		sort?: `${string}:${1 | -1}`,
-		limit: number = 0,
-		skip: number = 0
+		limit?: number,
+		skip?: number
 	): Promise<IJobParameters[]> {
 		return this.adapter.getJobs(query, sort, limit, skip);
 	}
 
-	removeJobs(query: FilterQuery<IJobParameters>): Promise<number> {
+	removeJobs(query: FilterQuery): Promise<number> {
 		return this.adapter.removeJobs(query);
-	}
-
-	removeJobsWithNotNames(names: string[]): Promise<number> {
-		return this.adapter.removeJobsWithNotNames(names);
 	}
 
 	getQueueSize(): Promise<number> {

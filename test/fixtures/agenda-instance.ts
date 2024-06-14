@@ -1,6 +1,6 @@
 import { Agenda } from '@agenda/agenda';
 import { AgendaMongoAdapter } from '@agenda/mongodb-adapter';
-import addTests from './add-tests.js';
+import addTests from './add-tests';
 
 const connStr = process.argv[2];
 const tests = process.argv.slice(3);

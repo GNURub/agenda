@@ -1,13 +1,17 @@
 import { Job, JobWithId } from '../Job';
 import { IJobParameters } from './JobParameters';
 
-export type FilterQuery<T, A = any> = Partial<Record<keyof T, A>>;
+type SimpleOrArrayWrapper<T> = {
+	[P in keyof T]: T[P] | T[P][];
+};
+
+export type FilterQuery = Partial<SimpleOrArrayWrapper<IJobParameters>>;
 
 export interface AgendaDBAdapter {
 	connect(): Promise<void>;
 
 	getJobs<R = unknown>(
-		query: Partial<IJobParameters>,
+		query: FilterQuery,
 		sort?: `${string}:${1 | -1}`,
 		limit?: number,
 		skip?: number
@@ -15,9 +19,7 @@ export interface AgendaDBAdapter {
 
 	getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null>;
 
-	removeJobs(query: FilterQuery<IJobParameters>): Promise<number>;
-
-	removeJobsWithNotNames(names: string[]): Promise<number>;
+	removeJobs(query: FilterQuery): Promise<number>;
 
 	getQueueSize(): Promise<number>;
 

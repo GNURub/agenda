@@ -8,7 +8,6 @@ import type { IAgendaConfig } from './types/AgendaConfig';
 import { AgendaDBAdapter, FilterQuery } from './types/AgendaDBAdapter';
 import type { IAgendaStatus } from './types/AgendaStatus';
 import type { IJobDefinition } from './types/JobDefinition';
-import type { IJobParameters } from './types/JobParameters';
 import { JobPriority, parsePriority } from './utils/priority';
 import { calculateProcessEvery } from './utils/processEvery';
 import { getCallerFilePath } from './utils/stack';
@@ -156,7 +155,7 @@ export class Agenda extends EventEmitter {
 	 * Cancels any jobs matching the passed MongoDB query, and removes them from the database.
 	 * @param query
 	 */
-	async cancel(query: FilterQuery<IJobParameters>): Promise<number> {
+	async cancel(query: FilterQuery): Promise<number> {
 		log('attempting to cancel all Agenda jobs', query);
 		try {
 			const amountOfRemovedJobs = await this.db.removeJobs(query);
@@ -252,10 +251,10 @@ export class Agenda extends EventEmitter {
 	 * @param skip
 	 */
 	async jobs(
-		query: Partial<IJobParameters> = {},
+		query: FilterQuery = {},
 		sort?: `${string}:${1 | -1}`,
-		limit = 0,
-		skip = 0
+		limit?: number,
+		skip?: number
 	): Promise<Job[]> {
 		const result = await this.db.getJobs(query, sort, limit, skip);
 
@@ -269,7 +268,9 @@ export class Agenda extends EventEmitter {
 	async purge(): Promise<number> {
 		const definedNames = Object.keys(this.definitions);
 		log('Agenda.purge(%o)', definedNames);
-		return this.db.removeJobsWithNotNames(definedNames);
+		return this.db.removeJobs({
+			name: definedNames
+		});
 	}
 
 	/**

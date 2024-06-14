@@ -1,6 +1,7 @@
 import { Agenda, Job, type AgendaDBAdapter } from '@agenda/agenda';
 import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
 import delay from 'delay';
+import { afterEach, beforeEach, describe, it } from 'vitest';
 
 // agenda instances
 let agenda: Agenda;
@@ -76,5 +77,5 @@ describe('Retry', () => {
 
 		await agenda.start();
 		await successPromise;
-	}).timeout(100000);
+	});
 });

@@ -6,16 +6,24 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 	async connect(): Promise<void> {}
 
 	async getJobs<R = unknown>(
-		query: Partial<IJobParameters>,
+		query: FilterQuery,
 		sort?: `${string}:${1 | -1}`,
 		limit?: number,
 		skip?: number
 	): Promise<IJobParameters<R>[]> {
-		let filteredJobs = this.jobs.filter(job => this.matches(query, job));
+		let jobs = this.jobs.filter(job => {
+			return Object.entries(query).every(([key, value]) => {
+				if (Array.isArray(value)) {
+					return value.includes(job[key as keyof IJobParameters]);
+				}
 
-		if (sort) {
+				return job[key as keyof IJobParameters] === value;
+			});
+		});
+
+		if (sort !== undefined) {
 			const [field, order] = sort.split(':');
-			filteredJobs.sort((jobA, jobB) => {
+			jobs = jobs.sort((jobA, jobB) => {
 				if (field && field in jobA) {
 					if (
 						typeof jobA[field as keyof IJobParameters] === 'number' &&
@@ -39,31 +47,34 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 			});
 		}
 
-		if (skip !== undefined) {
-			filteredJobs = filteredJobs.slice(skip);
+		if (limit === undefined) {
+			limit = jobs.length;
 		}
 
-		if (limit !== undefined) {
-			filteredJobs = filteredJobs.slice(0, limit);
+		if (skip === undefined) {
+			skip = 0;
 		}
 
-		return filteredJobs as IJobParameters<R>[];
+		return jobs.slice(skip, skip + limit) as IJobParameters<R>[];
 	}
 
 	async getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null> {
 		return (this.jobs.find(job => job.id === id) as IJobParameters<R>) || null;
 	}
 
-	async removeJobsWithNotNames(names: string[]): Promise<number> {
-		const initialLength = this.jobs.length;
-		this.jobs = this.jobs.filter(job => names.includes(job.name));
-		return initialLength - this.jobs.length;
-	}
+	async removeJobs(query: FilterQuery): Promise<number> {
+		const initialCount = this.jobs.length;
+		this.jobs = this.jobs.filter(
+			job =>
+				!Object.entries(query).every(([key, value]) => {
+					if (Array.isArray(value)) {
+						return !value.includes(job[key as keyof IJobParameters]);
+					}
 
-	async removeJobs(query: FilterQuery<IJobParameters>): Promise<number> {
-		const initialLength = this.jobs.length;
-		this.jobs = this.jobs.filter(job => !this.matches(query, job));
-		return initialLength - this.jobs.length;
+					return job[key as keyof IJobParameters] !== value;
+				})
+		);
+		return initialCount - this.jobs.length;
 	}
 
 	async getQueueSize(): Promise<number> {
@@ -144,15 +155,5 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 		} as IJobParameters<DATA>;
 		this.jobs.push(newJob);
 		return { job, result: newJob };
-	}
-
-	private matches(query: Partial<IJobParameters>, job: IJobParameters): boolean {
-		for (const key in query) {
-			// @ts-ignore
-			if (query[key] !== job[key]) {
-				return false;
-			}
-		}
-		return true;
 	}
 }

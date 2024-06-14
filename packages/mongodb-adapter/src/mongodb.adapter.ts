@@ -129,35 +129,50 @@ export class AgendaMongoAdapter implements AgendaDBAdapter {
 		limit?: number,
 		skip?: number
 	): Promise<IJobParameters<R>[]> {
-		let q = this.collection.find<IJobParameters<R>>(query);
+		let q: any = {};
+
+		for (const key in query) {
+			if (Array.isArray(query[key as keyof FilterQuery])) {
+				q[key] = { $in: query[key as keyof FilterQuery] };
+			} else {
+				q[key] = query[key as keyof FilterQuery];
+			}
+		}
+
+		let r = this.collection.find<IJobParameters<R>>(q);
 
 		if (skip !== undefined) {
-			q = q.skip(skip);
+			r = r.skip(skip);
 		}
 
 		if (limit !== undefined) {
-			q = q.limit(limit);
+			r = r.limit(limit);
 		}
 
 		if (sort !== undefined) {
 			const [field, order] = sort.split(':');
-			q = q.sort({ [field]: order === '1' ? 1 : -1 });
+			r = r.sort({ [field]: order === '1' ? 1 : -1 });
 		}
 
-		return q.toArray();
+		return r.toArray();
 	}
 
 	getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null> {
 		return this.collection.findOne<IJobParameters<R> | null>({ id });
 	}
 
-	async removeJobsWithNotNames(names: string[]): Promise<number> {
-		const result = await this.collection.deleteMany({ name: { $nin: names } });
-		return result.deletedCount || 0;
-	}
+	async removeJobs(query: FilterQuery): Promise<number> {
+		let q: any = {};
 
-	async removeJobs(query: FilterQuery<IJobParameters>): Promise<number> {
-		const result = await this.collection.deleteMany(query);
+		for (const key in query) {
+			if (Array.isArray(query[key as keyof FilterQuery])) {
+				q[key] = { $in: query[key as keyof FilterQuery] };
+			} else {
+				q[key] = query[key as keyof FilterQuery];
+			}
+		}
+
+		const result = await this.collection.deleteMany(q);
 		return result.deletedCount || 0;
 	}
 

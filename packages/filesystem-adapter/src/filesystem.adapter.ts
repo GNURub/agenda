@@ -16,7 +16,7 @@ export interface IDbConfig {
 
 export class AgendaFSAdapter implements AgendaDBAdapter {
 	private filePath: string;
-	private data: IJobParameters[] = [];
+	private jobs: IJobParameters[] = [];
 	private sortOptions: { [key: string]: 1 | -1 };
 
 	constructor(options: IDatabaseOptions & IDbConfig) {
@@ -27,10 +27,10 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 	private async loadData(): Promise<void> {
 		try {
 			const fileData = await fs.readFile(this.filePath, 'utf8');
-			this.data = JSON.parse(fileData);
+			this.jobs = JSON.parse(fileData);
 		} catch (error: any) {
 			if (error.code === 'ENOENT') {
-				this.data = [];
+				this.jobs = [];
 				await this.saveData();
 			} else {
 				throw error;
@@ -39,16 +39,12 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 	}
 
 	private async saveData(): Promise<void> {
-		await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2));
+		await fs.writeFile(this.filePath, JSON.stringify(this.jobs, null, 2));
 	}
 
 	async connect(): Promise<void> {
 		await this.loadData();
 		log('successful connection to JSON file');
-	}
-
-	close(): Promise<void> {
-		return Promise.resolve();
 	}
 
 	private sortJobs(jobs: IJobParameters[]): IJobParameters[] {
@@ -64,15 +60,19 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 	}
 
 	async getJobs<R = unknown>(
-		query: Partial<IJobParameters>,
+		query: FilterQuery,
 		sort?: `${string}:${1 | -1}`,
 		limit?: number,
 		skip?: number
 	): Promise<IJobParameters<R>[]> {
-		let jobs = this.data.filter(job => {
-			return Object.entries(query).every(
-				([key, value]) => job[key as keyof IJobParameters] === value
-			);
+		let jobs = this.jobs.filter(job => {
+			return Object.entries(query).every(([key, value]) => {
+				if (Array.isArray(value)) {
+					return value.includes(job[key as keyof IJobParameters]);
+				}
+
+				return job[key as keyof IJobParameters] === value;
+			});
 		});
 
 		if (sort !== undefined) {
@@ -113,37 +113,36 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 	}
 
 	async getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null> {
-		return (this.data.find(job => job.id === id) as IJobParameters<R>) || null;
+		return (this.jobs.find(job => job.id === id) as IJobParameters<R>) || null;
 	}
 
-	async removeJobsWithNotNames(names: string[]): Promise<number> {
-		const initialCount = this.data.length;
-		this.data = this.data.filter(job => names.includes(job.name));
-		await this.saveData();
-		return initialCount - this.data.length;
-	}
-
-	async removeJobs(query: FilterQuery<IJobParameters>): Promise<number> {
-		const initialCount = this.data.length;
-		this.data = this.data.filter(
+	async removeJobs(query: FilterQuery): Promise<number> {
+		const initialCount = this.jobs.length;
+		this.jobs = this.jobs.filter(
 			job =>
-				!Object.entries(query).every(([key, value]) => job[key as keyof IJobParameters] === value)
+				!Object.entries(query).every(([key, value]) => {
+					if (Array.isArray(value)) {
+						return !value.includes(job[key as keyof IJobParameters]);
+					}
+
+					return job[key as keyof IJobParameters] !== value;
+				})
 		);
 		await this.saveData();
-		return initialCount - this.data.length;
+		return initialCount - this.jobs.length;
 	}
 
 	async getQueueSize(): Promise<number> {
-		const count = this.data.filter(
+		const count = this.jobs.filter(
 			job => job.nextRunAt && new Date(job.nextRunAt) < new Date()
 		).length;
 		return count;
 	}
 
 	async unlockJob(jobId: string): Promise<void> {
-		const indexJob = this.data.findIndex(job => job.id === jobId && job.nextRunAt !== null);
+		const indexJob = this.jobs.findIndex(job => job.id === jobId && job.nextRunAt !== null);
 		if (indexJob !== -1) {
-			delete this.data[indexJob].lockedAt;
+			delete this.jobs[indexJob].lockedAt;
 			await this.saveData();
 		}
 	}
@@ -151,7 +150,7 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 	async unlockJobs(jobIds: string[]): Promise<void> {
 		let updated = false;
 
-		this.data = this.data.map(job => {
+		this.jobs = this.jobs.map(job => {
 			if (jobIds.includes(job.id!) && job.nextRunAt !== null) {
 				delete job.lockedAt;
 				updated = true;
@@ -172,14 +171,14 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 			disabled: { $ne: true }
 		};
 
-		const indexJobToLock = this.data.findIndex(j =>
+		const indexJobToLock = this.jobs.findIndex(j =>
 			Object.entries(criteria).every(([key, value]) => j[key as keyof IJobParameters] === value)
 		);
 
 		if (indexJobToLock !== -1) {
-			this.data[indexJobToLock].lockedAt = new Date();
+			this.jobs[indexJobToLock].lockedAt = new Date();
 			await this.saveData();
-			return this.data[indexJobToLock];
+			return this.jobs[indexJobToLock];
 		}
 		return undefined;
 	}
@@ -190,7 +189,7 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 		lockDeadline: Date,
 		now?: Date
 	): Promise<IJobParameters | undefined> {
-		const indexJobToRun = this.data.findIndex(job => {
+		const indexJobToRun = this.jobs.findIndex(job => {
 			return (
 				job.name === jobName &&
 				job.disabled !== true &&
@@ -200,19 +199,19 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 		});
 
 		if (indexJobToRun !== -1) {
-			this.data[indexJobToRun].lockedAt = now || new Date();
+			this.jobs[indexJobToRun].lockedAt = now || new Date();
 			await this.saveData();
-			return this.data[indexJobToRun];
+			return this.jobs[indexJobToRun];
 		}
 
 		return undefined;
 	}
 
 	async saveJobState(job: Job<any>): Promise<void> {
-		const indexJob = this.data.findIndex(j => j.id === job.attrs.id && j.name === job.attrs.name);
+		const indexJob = this.jobs.findIndex(j => j.id === job.attrs.id && j.name === job.attrs.name);
 		if (indexJob !== -1) {
-			this.data[indexJob] = {
-				...this.data[indexJob],
+			this.jobs[indexJob] = {
+				...this.jobs[indexJob],
 				...job.attrs
 			};
 
@@ -231,23 +230,23 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 		job: Job<DATA>;
 		result: IJobParameters<DATA> | null;
 	}> {
-		let indexJob = this.data.findIndex(j => j.id === job.attrs.id);
+		let indexJob = this.jobs.findIndex(j => j.id === job.attrs.id);
 
 		if (indexJob !== -1) {
-			this.data[indexJob] = {
-				...this.data[indexJob],
+			this.jobs[indexJob] = {
+				...this.jobs[indexJob],
 				...job.attrs,
 				lastModifiedBy
 			};
 		} else {
 			job.attrs.id = crypto.randomUUID();
-			this.data.push({ ...job.attrs, lastModifiedBy });
+			this.jobs.push({ ...job.attrs, lastModifiedBy });
 
-			indexJob = this.data.findIndex(j => j.id === job.attrs.id);
+			indexJob = this.jobs.findIndex(j => j.id === job.attrs.id);
 		}
 
 		await this.saveData();
 
-		return { job, result: (this.data[indexJob] as IJobParameters<DATA>) || job.attrs };
+		return { job, result: (this.jobs[indexJob] as IJobParameters<DATA>) || job.attrs };
 	}
 }

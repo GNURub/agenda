@@ -1,15 +1,13 @@
 /* eslint-disable no-console */
-import { expect } from 'chai';
-import * as cp from 'child_process';
-import { DateTime } from 'luxon';
-import * as assert from 'node:assert';
-import * as path from 'path';
-
 import { Agenda, Job, type AgendaDBAdapter } from '@agenda/agenda';
 import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
-import { fail } from 'assert';
 import delay from 'delay';
+import { DateTime } from 'luxon';
+import assert, { fail } from 'node:assert';
+import cp from 'node:child_process';
+import path from 'node:path';
 import sinon from 'sinon';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import someJobDefinition from './fixtures/someJobDefinition';
 
 // Create agenda instances
@@ -66,10 +64,10 @@ describe('Job', () => {
 		const job = new Job(agenda, { name: 'demo', type: 'normal' });
 		it('sets the repeat at', () => {
 			job.repeatAt('3:30pm');
-			expect(job.attrs.repeatAt).to.equal('3:30pm');
+			expect(job.attrs.repeatAt).toBe('3:30pm');
 		});
 		it('returns the job', () => {
-			expect(job.repeatAt('3:30pm')).to.equal(job);
+			expect(job.repeatAt('3:30pm')).toBe(job);
 		});
 	});
 
@@ -81,7 +79,7 @@ describe('Job', () => {
 				nextRunAt: null,
 				failedAt: null as any
 			});
-			expect(job.toJson().failedAt).to.be.not.a('Date');
+			expect(job.toJson().failedAt).not.toBeInstanceOf(Date);
 
 			job = new Job(agenda, {
 				name: 'demo',
@@ -89,20 +87,32 @@ describe('Job', () => {
 				nextRunAt: null,
 				failedAt: new Date()
 			});
-			expect(job.toJson().failedAt).to.be.a('Date');
+			expect(job.toJson().failedAt).toBeInstanceOf(Date);
 		});
 	});
 
 	describe('unique', () => {
 		const job = new Job(agenda, { name: 'demo', type: 'normal' });
 		it('sets the unique property', () => {
-			job.unique({ 'data.type': 'active', 'data.userId': '123' });
-			expect(JSON.stringify(job.attrs.unique)).to.equal(
+			job.unique({
+				data: {
+					type: 'active',
+					userId: '123'
+				}
+			});
+			expect(JSON.stringify(job.attrs.unique)).toBe(
 				JSON.stringify({ 'data.type': 'active', 'data.userId': '123' })
 			);
 		});
 		it('returns the job', () => {
-			expect(job.unique({ 'data.type': 'active', 'data.userId': '123' })).to.equal(job);
+			expect(
+				job.unique({
+					data: {
+						type: 'active',
+						userId: '123'
+					}
+				})
+			).toBe(job);
 		});
 	});
 
@@ -110,29 +120,30 @@ describe('Job', () => {
 		const job = new Job(agenda, { name: 'demo', type: 'normal' });
 		it('sets the repeat interval', () => {
 			job.repeatEvery(5000);
-			expect(job.attrs.repeatInterval).to.equal(5000);
+			expect(job.attrs.repeatInterval).toBe(5000);
 		});
 		it('returns the job', () => {
-			expect(job.repeatEvery('one second')).to.equal(job);
+			expect(job.repeatEvery('one second')).toBe(job);
 		});
 		it('sets the nextRunAt property with skipImmediate', () => {
 			const job2 = new Job(agenda, { name: 'demo', type: 'normal' });
 			const now = new Date().valueOf();
 			job2.repeatEvery('3 minutes', { skipImmediate: true });
-			expect(job2.attrs.nextRunAt).to.be.within(new Date(now + 180000), new Date(now + 180002)); // Inclusive
+			expect(job2.attrs.nextRunAt).toBeGreaterThanOrEqual(new Date(now + 180000).valueOf());
+			expect(job2.attrs.nextRunAt).toBeLessThanOrEqual(new Date(now + 180002).valueOf()); // Inclusive
 		});
 		it('repeats from the existing nextRunAt property with skipImmediate', () => {
 			const job2 = new Job(agenda, { name: 'demo', type: 'normal' });
 			const futureDate = new Date('3000-01-01T00:00:00');
 			job2.attrs.nextRunAt = futureDate;
 			job2.repeatEvery('3 minutes', { skipImmediate: true });
-			expect(job2.attrs.nextRunAt!.getTime()).to.equal(futureDate.getTime() + 180000);
+			expect(job2.attrs.nextRunAt!.getTime()).toBe(futureDate.getTime() + 180000);
 		});
 		it('repeats from the existing scheduled date with skipImmediate', () => {
 			const futureDate = new Date('3000-01-01T00:00:00');
 			const job2 = new Job(agenda, { name: 'demo', type: 'normal' }).schedule(futureDate);
 			job2.repeatEvery('3 minutes', { skipImmediate: true });
-			expect(job2.attrs.nextRunAt!.getTime()).to.equal(futureDate.valueOf() + 180000);
+			expect(job2.attrs.nextRunAt!.getTime()).toBe(futureDate.valueOf() + 180000);
 		});
 	});
 
@@ -143,20 +154,20 @@ describe('Job', () => {
 		});
 		it('sets the next run time', () => {
 			job.schedule('in 5 minutes');
-			expect(job.attrs.nextRunAt).to.be.an.instanceof(Date);
+			expect(job.attrs.nextRunAt).toBeInstanceOf(Date);
 		});
 		it('sets the next run time Date object', () => {
 			const when = new Date(Date.now() + 1000 * 60 * 3);
 			job.schedule(when);
-			expect(job.attrs.nextRunAt).to.be.an.instanceof(Date);
-			expect(job.attrs.nextRunAt!.getTime()).to.eql(when.getTime());
+			expect(job.attrs.nextRunAt).toBeInstanceOf(Date);
+			expect(job.attrs.nextRunAt!.getTime()).toEqual(when.getTime());
 		});
 		it('returns the job', () => {
-			expect(job.schedule('tomorrow at noon')).to.equal(job);
+			expect(job.schedule('tomorrow at noon')).toBe(job);
 		});
 		it('understands ISODates on the 30th', () => {
 			// https://github.com/agenda/agenda/issues/807
-			expect(job.schedule('2019-04-30T22:31:00.00Z').attrs.nextRunAt!.getTime()).to.equal(
+			expect(job.schedule('2019-04-30T22:31:00.00Z').attrs.nextRunAt!.getTime()).toBe(
 				1556663460000
 			);
 		});
@@ -169,14 +180,14 @@ describe('Job', () => {
 		});
 		it('sets the priority to a number', () => {
 			job.priority(10);
-			expect(job.attrs.priority).to.equal(10);
+			expect(job.attrs.priority).toBe(10);
 		});
 		it('returns the job', () => {
-			expect(job.priority(50)).to.equal(job);
+			expect(job.priority(50)).toBe(job);
 		});
 		it('parses written priorities', () => {
 			job.priority('high');
-			expect(job.attrs.priority).to.equal(10);
+			expect(job.attrs.priority).toBe(10);
 		});
 	});
 
@@ -189,14 +200,14 @@ describe('Job', () => {
 
 		it('returns the job', () => {
 			const jobProto = Object.getPrototypeOf(job);
-			expect(jobProto.computeNextRunAt.call(job)).to.equal(job);
+			expect(jobProto.computeNextRunAt.call(job)).toBe(job);
 		});
 
 		it('sets to undefined if no repeat at', () => {
 			job.attrs.repeatAt = undefined;
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt).to.equal(null);
+			expect(job.attrs.nextRunAt).toBe(null);
 		});
 
 		it('it understands repeatAt times', () => {
@@ -207,15 +218,15 @@ describe('Job', () => {
 			job.attrs.repeatAt = '11:59pm';
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt?.getHours()).to.equal(d.getHours());
-			expect(job.attrs.nextRunAt?.getMinutes()).to.equal(d.getMinutes());
+			expect(job.attrs.nextRunAt?.getHours()).toBe(d.getHours());
+			expect(job.attrs.nextRunAt?.getMinutes()).toBe(d.getMinutes());
 		});
 
 		it('sets to undefined if no repeat interval', () => {
 			job.attrs.repeatInterval = undefined;
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt).to.equal(null);
+			expect(job.attrs.nextRunAt).toBe(null);
 		});
 
 		it('it understands human intervals', () => {
@@ -224,7 +235,7 @@ describe('Job', () => {
 			job.repeatEvery('2 minutes');
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt?.getTime()).to.equal(now.valueOf() + 120000);
+			expect(job.attrs.nextRunAt?.getTime()).toBe(now.valueOf() + 120000);
 		});
 
 		it('understands cron intervals', () => {
@@ -236,7 +247,7 @@ describe('Job', () => {
 			job.repeatEvery('*/2 * * * *');
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt?.valueOf()).to.equal(now.valueOf() + 60000);
+			expect(job.attrs.nextRunAt?.valueOf()).toBe(now.valueOf() + 60000);
 		});
 
 		it('understands cron intervals with a timezone', () => {
@@ -247,8 +258,8 @@ describe('Job', () => {
 			});
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).to.equal(6);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).to.equal(
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).toBe(6);
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).toBe(
 				DateTime.fromJSDate(job.attrs.lastRunAt!).plus({ days: 1 }).toJSDate().getDate()
 			);
 		});
@@ -261,8 +272,8 @@ describe('Job', () => {
 			});
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).to.equal(15);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).to.equal(
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).toBe(15);
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).toBe(
 				DateTime.fromJSDate(job.attrs.lastRunAt!).toJSDate().getDate()
 			);
 		});
@@ -275,8 +286,8 @@ describe('Job', () => {
 			});
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).to.equal(6);
-			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).to.equal(
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).setZone('GMT').hour).toBe(6);
+			expect(DateTime.fromJSDate(job.attrs.nextRunAt!).toJSDate().getDate()).toBe(
 				DateTime.fromJSDate(job.attrs.lastRunAt!).plus({ days: 1 }).toJSDate().getDate()
 			);
 		});
@@ -295,7 +306,7 @@ describe('Job', () => {
 			});
 			const jobProto = Object.getPrototypeOf(job);
 			jobProto.computeNextRunAt.call(job);
-			expect(job.attrs.nextRunAt.valueOf()).to.equal(expectedDate.valueOf());
+			expect(job.attrs.nextRunAt.valueOf()).toBe(expectedDate.valueOf());
 		});
 
 		it('cron job with month starting at 1', async () => {
@@ -303,7 +314,7 @@ describe('Job', () => {
 				timezone: 'GMT'
 			});
 			if (job.attrs.nextRunAt) {
-				expect(job.attrs.nextRunAt.getMonth()).to.equal(0);
+				expect(job.attrs.nextRunAt.getMonth()).toBe(0);
 			} else {
 				fail();
 			}
@@ -313,7 +324,7 @@ describe('Job', () => {
 			job.repeatEvery('0 0 * 1 *', {
 				timezone: 'GMT'
 			});
-			expect(job.attrs.nextRunAt).to.not.eql(null);
+			expect(job.attrs.nextRunAt).not.toEqual(null);
 		});
 
 		describe('when repeat at time is invalid', () => {
@@ -324,11 +335,11 @@ describe('Job', () => {
 			});
 
 			it('sets nextRunAt to null', () => {
-				expect(job.attrs.nextRunAt).to.equal(null);
+				expect(job.attrs.nextRunAt).toBe(null);
 			});
 
 			it('fails the job', () => {
-				expect(job.attrs.failReason).to.equal(
+				expect(job.attrs.failReason).toBe(
 					'failed to calculate repeatAt time due to invalid format'
 				);
 			});
@@ -342,11 +353,11 @@ describe('Job', () => {
 			});
 
 			it('sets nextRunAt to null', () => {
-				expect(job.attrs.nextRunAt).to.equal(null);
+				expect(job.attrs.nextRunAt).toBe(null);
 			});
 
 			it('fails the job', () => {
-				expect(job.attrs.failReason).to.equal(
+				expect(job.attrs.failReason).toBe(
 					'failed to calculate nextRunAt due to invalid repeat interval (asd): Error: Validation error, cannot resolve alias "asd"'
 				);
 			});
@@ -365,14 +376,14 @@ describe('Job', () => {
 				id: job.attrs.id!
 			});
 
-			expect(resultSaved).to.have.length(1);
+			expect(resultSaved).toHaveLength(1);
 			await job.remove();
 
 			const resultDeleted = await adapter.getJobs({
 				id: job.attrs.id!
 			});
 
-			expect(resultDeleted).to.have.length(0);
+			expect(resultDeleted).toHaveLength(0);
 		});
 	});
 
@@ -392,7 +403,7 @@ describe('Job', () => {
 			await delay(5);
 			await job.run();
 
-			expect(job.attrs.lastRunAt?.valueOf()).to.greaterThan(now.valueOf());
+			expect(job.attrs.lastRunAt?.valueOf()).toBeGreaterThan(now.valueOf());
 		});
 
 		it('fails if job is undefined', async () => {
@@ -400,10 +411,10 @@ describe('Job', () => {
 			await job.save();
 
 			await job.run().catch(error => {
-				expect(error.message).to.equal('Undefined job');
+				expect(error.message).toBe('Undefined job');
 			});
-			expect(job.attrs.failedAt).to.not.be.undefined;
-			expect(job.attrs.failReason).to.equal('Undefined job');
+			expect(job.attrs.failedAt).toBeDefined();
+			expect(job.attrs.failReason).toBe('Undefined job');
 		});
 
 		it('updates nextRunAt', async () => {
@@ -414,7 +425,7 @@ describe('Job', () => {
 			job.repeatEvery('10 minutes');
 			await delay(5);
 			await job.run();
-			expect(job.attrs.nextRunAt?.valueOf()).to.greaterThan(now.valueOf() + 59999);
+			expect(job.attrs.nextRunAt?.valueOf()).toBeGreaterThan(now.valueOf() + 59999);
 		});
 
 		it('handles errors', async () => {
@@ -425,7 +436,7 @@ describe('Job', () => {
 				throw new Error('Zomg fail');
 			});
 			await job.run();
-			expect(job.attrs.failReason).to.equal('Zomg fail');
+			expect(job.attrs.failReason).toBe('Zomg fail');
 		});
 
 		it('handles errors with q promises', async () => {
@@ -440,7 +451,7 @@ describe('Job', () => {
 				}
 			});
 			await job.run();
-			expect(job.attrs.failReason).to.not.be.undefined;
+			expect(job.attrs.failReason).toBeDefined();
 		});
 
 		it('allows async functions', async () => {
@@ -457,10 +468,10 @@ describe('Job', () => {
 				finished = true;
 			});
 
-			expect(finished).to.equal(false);
+			expect(finished).toBe(false);
 			await job.run();
-			expect(successSpy.callCount).to.equal(1);
-			expect(finished).to.equal(true);
+			expect(successSpy.callCount).toBe(1);
+			expect(finished).toBe(true);
 		});
 
 		it('handles errors from async functions', async () => {
@@ -478,8 +489,8 @@ describe('Job', () => {
 			});
 
 			await job.run();
-			expect(failSpy.callCount).to.equal(1);
-			expect(failSpy.calledWith(err)).to.equal(true);
+			expect(failSpy.callCount).toBe(1);
+			expect(failSpy.calledWith(err)).toBe(true);
 		});
 
 		it('waits for the callback to be called even if the function is async', async () => {
@@ -500,8 +511,8 @@ describe('Job', () => {
 			});
 
 			await job.run();
-			expect(finishedCb).to.equal(true);
-			expect(successSpy.callCount).to.equal(1);
+			expect(finishedCb).toBe(true);
+			expect(successSpy.callCount).toBe(1);
 		});
 
 		it("uses the callback error if the function is async and didn't reject", async () => {
@@ -521,8 +532,8 @@ describe('Job', () => {
 			});
 
 			await job.run();
-			expect(failSpy.callCount).to.equal(1);
-			expect(failSpy.calledWith(err)).to.equal(true);
+			expect(failSpy.callCount).toBe(1);
+			expect(failSpy.calledWith(err)).toBe(true);
 		});
 
 		it('favors the async function error over the callback error if it comes first', async () => {
@@ -545,9 +556,9 @@ describe('Job', () => {
 			});
 
 			await job.run();
-			expect(failSpy.callCount).to.equal(1);
-			expect(failSpy.calledWith(fnErr)).to.equal(true);
-			expect(failSpy.calledWith(cbErr)).to.equal(false);
+			expect(failSpy.callCount).toBe(1);
+			expect(failSpy.calledWith(fnErr)).toBe(true);
+			expect(failSpy.calledWith(cbErr)).toBe(false);
 		});
 
 		it('favors the callback error over the async function error if it comes first', async () => {
@@ -567,9 +578,9 @@ describe('Job', () => {
 			});
 
 			await job.run();
-			expect(failSpy.callCount).to.equal(1);
-			expect(failSpy.calledWith(cbErr)).to.equal(true);
-			expect(failSpy.calledWith(fnErr)).to.equal(false);
+			expect(failSpy.callCount).toBe(1);
+			expect(failSpy.calledWith(cbErr)).toBe(true);
+			expect(failSpy.calledWith(fnErr)).toBe(false);
 		});
 
 		it("doesn't allow a stale job to be saved", async () => {
@@ -580,7 +591,7 @@ describe('Job', () => {
 				// Explicitly find the job again,
 				// so we have a new job object
 				const jobs = await agenda.jobs({ name: 'failBoat3' });
-				expect(jobs).to.have.length(1);
+				expect(jobs).toHaveLength(1);
 				await jobs[0].remove();
 				cb();
 			});
@@ -589,7 +600,7 @@ describe('Job', () => {
 
 			// Expect the deleted job to not exist in the database
 			const deletedJob = await agenda.jobs({ name: 'failBoat3' });
-			expect(deletedJob).to.have.length(0);
+			expect(deletedJob).toHaveLength(0);
 		});
 	});
 
@@ -600,7 +611,7 @@ describe('Job', () => {
 			await job.save();
 			await delay(2);
 			await job.touch();
-			expect(job.attrs.lockedAt).to.greaterThan(lockedAt);
+			expect(job.attrs.lockedAt).toBeGreaterThan(lockedAt.valueOf());
 		});
 	});
 
@@ -608,19 +619,19 @@ describe('Job', () => {
 		const job = new Job(agenda, { name: 'demo', type: 'normal' });
 		it('takes a string', () => {
 			job.fail('test');
-			expect(job.attrs.failReason).to.equal('test');
+			expect(job.attrs.failReason).toBe('test');
 		});
 		it('takes an error object', () => {
 			job.fail(new Error('test'));
-			expect(job.attrs.failReason).to.equal('test');
+			expect(job.attrs.failReason).toBe('test');
 		});
 		it('sets the failedAt time', () => {
 			job.fail('test');
-			expect(job.attrs.failedAt).to.be.an.instanceof(Date);
+			expect(job.attrs.failedAt).toBeInstanceOf(Date);
 		});
 		it('sets the failedAt time equal to lastFinishedAt time', () => {
 			job.fail('test');
-			expect(job.attrs.failedAt).to.equal(job.attrs.lastFinishedAt);
+			expect(job.attrs.failedAt).toBe(job.attrs.lastFinishedAt);
 		});
 	});
 
@@ -628,12 +639,12 @@ describe('Job', () => {
 		it('sets disabled to false on the job', () => {
 			const job = new Job(agenda, { name: 'test', type: 'normal', disabled: true });
 			job.enable();
-			expect(job.attrs.disabled).to.equal(false);
+			expect(job.attrs.disabled).toBe(false);
 		});
 
 		it('returns the job', () => {
 			const job = new Job(agenda, { name: 'test', type: 'normal', disabled: true });
-			expect(job.enable()).to.equal(job);
+			expect(job.enable()).toBe(job);
 		});
 	});
 
@@ -641,11 +652,11 @@ describe('Job', () => {
 		it('sets disabled to true on the job', () => {
 			const job = new Job(agenda, { name: 'demo', type: 'normal' });
 			job.disable();
-			expect(job.attrs.disabled).to.be.true;
+			expect(job.attrs.disabled).toBe(true);
 		});
 		it('returns the job', () => {
 			const job = new Job(agenda, { name: 'demo', type: 'normal' });
-			expect(job.disable()).to.equal(job);
+			expect(job.disable()).toBe(job);
 		});
 	});
 
@@ -673,14 +684,14 @@ describe('Job', () => {
 			await j.save();
 
 			const jobs = await agenda.jobs({ name: 'another job' });
-			expect(jobs).to.have.length(0);
+			expect(jobs).toHaveLength(0);
 		});
 
 		it('returns the job', async () => {
 			const job = agenda.create('some job', {
 				wee: 1
 			});
-			expect(await job.save()).to.equal(job);
+			expect(await job.save()).toBe(job);
 		});
 	});
 
@@ -702,7 +713,7 @@ describe('Job', () => {
 						setTimeout(() => resolve(`not processed`), 1100);
 					})
 				])
-			).to.eq('processed');
+			).toBe('processed');
 
 			await agenda.stop();
 			const processedStopped = new Promise<void>(resolve => {
@@ -718,7 +729,7 @@ describe('Job', () => {
 						setTimeout(() => resolve(`not processed`), 1100);
 					})
 				])
-			).to.eq('not processed');
+			).toBe('not processed');
 		});
 
 		it('does not run disabled jobs', async () => {
@@ -732,7 +743,7 @@ describe('Job', () => {
 			await agenda.start();
 			await delay(jobTimeout);
 
-			expect(ran).to.equal(false);
+			expect(ran).toBe(false);
 
 			await agenda.stop();
 		});
@@ -758,10 +769,10 @@ describe('Job', () => {
 			await agenda.start();
 			await delay(jobTimeout);
 			const jobStarted = await agenda.db.getJobs({ name: 'longRunningJob' });
-			expect(jobStarted[0].lockedAt).to.not.equal(null);
+			expect(jobStarted[0].lockedAt).not.toBe(null);
 			await agenda.stop();
 			const job = await agenda.db.getJobs({ name: 'longRunningJob' });
-			expect(job[0].lockedAt).to.equal(undefined);
+			expect(job[0].lockedAt).toBeUndefined();
 		});
 
 		describe('events', () => {
@@ -781,8 +792,8 @@ describe('Job', () => {
 				agenda.once('start', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits start:job name event', async () => {
@@ -792,8 +803,8 @@ describe('Job', () => {
 				agenda.once('start:jobQueueTest', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits complete event', async () => {
@@ -803,8 +814,8 @@ describe('Job', () => {
 				agenda.once('complete', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits complete:job name event', async () => {
@@ -814,8 +825,8 @@ describe('Job', () => {
 				agenda.once('complete:jobQueueTest', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits success event', async () => {
@@ -825,8 +836,8 @@ describe('Job', () => {
 				agenda.once('success', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits success:job name event', async () => {
@@ -836,8 +847,8 @@ describe('Job', () => {
 				agenda.once('success:jobQueueTest', spy);
 
 				await job.run();
-				expect(spy.called).to.be.true;
-				expect(spy.calledWithExactly(job)).to.be.true;
+				expect(spy.called).toBe(true);
+				expect(spy.calledWithExactly(job)).toBe(true);
 			});
 
 			it('emits fail event', async () => {
@@ -847,15 +858,15 @@ describe('Job', () => {
 				agenda.once('fail', spy);
 
 				await job.run().catch(error => {
-					expect(error.message).to.equal('Zomg fail');
+					expect(error.message).toBe('Zomg fail');
 				});
 
-				expect(spy.called).to.be.true;
+				expect(spy.called).toBe(true);
 
 				const err = spy.args[0][0];
-				expect(err.message).to.equal('Zomg fail');
-				expect(job.attrs.failCount).to.equal(1);
-				expect(job.attrs.failedAt!.valueOf()).not.to.be.below(job.attrs.lastFinishedAt!.valueOf());
+				expect(err.message).toBe('Zomg fail');
+				expect(job.attrs.failCount).toBe(1);
+				expect(job.attrs.failedAt!.valueOf()).not.toBeLessThan(job.attrs.lastFinishedAt!.valueOf());
 			});
 
 			it('emits fail:job name event', async () => {
@@ -865,15 +876,15 @@ describe('Job', () => {
 				agenda.once('fail:failBoat', spy);
 
 				await job.run().catch(error => {
-					expect(error.message).to.equal('Zomg fail');
+					expect(error.message).toBe('Zomg fail');
 				});
 
-				expect(spy.called).to.be.true;
+				expect(spy.called).toBe(true);
 
 				const err = spy.args[0][0];
-				expect(err.message).to.equal('Zomg fail');
-				expect(job.attrs.failCount).to.equal(1);
-				expect(job.attrs.failedAt!.valueOf()).to.not.be.below(job.attrs.lastFinishedAt!.valueOf());
+				expect(err.message).toBe('Zomg fail');
+				expect(job.attrs.failCount).toBe(1);
+				expect(job.attrs.failedAt!.valueOf()).not.toBeLessThan(job.attrs.lastFinishedAt!.valueOf());
 			});
 		});
 	});
@@ -898,14 +909,14 @@ describe('Job', () => {
 				);
 			});
 
-			expect(agenda.definitions['lock job'].lockLifetime).to.equal(50);
+			expect(agenda.definitions['lock job'].lockLifetime).toBe(50);
 
 			agenda.defaultConcurrency(100);
 			agenda.processEvery(10);
 			agenda.every('0.02 seconds', 'lock job');
 			await agenda.stop();
 			await agenda.start();
-			expect(await processorPromise).to.equal(2);
+			expect(await processorPromise).toBe(2);
 		});
 
 		it('runs a one-time job after its lock expires', async () => {
@@ -944,8 +955,10 @@ describe('Job', () => {
 			agenda.now('lock job', {
 				i: 1
 			});
-			expect(await processorPromise).to.equal(2);
-			expect(errorHasBeenThrown?.message).to.includes("execution of 'lock job' canceled");
+			expect(await processorPromise).toBe(2);
+			expect(errorHasBeenThrown?.message).toEqual(
+				expect.arrayContaining(["execution of 'lock job' canceled"])
+			);
 		});
 
 		it('does not process locked jobs', async () => {
@@ -975,10 +988,10 @@ describe('Job', () => {
 			]);
 
 			await delay(500);
-			expect(history).to.have.length(3);
-			expect(history).to.contain(1);
-			expect(history).to.contain(2);
-			expect(history).to.contain(3);
+			expect(history).toHaveLength(3);
+			expect(history).toEqual(expect.arrayContaining([1]));
+			expect(history).toEqual(expect.arrayContaining([2]));
+			expect(history).toEqual(expect.arrayContaining([3]));
 		});
 
 		it('does not on-the-fly lock more than agenda._lockLimit jobs', async () => {
@@ -995,7 +1008,7 @@ describe('Job', () => {
 			// give it some time to get picked up
 			await delay(200);
 
-			expect((await agenda.getRunningStats()).lockedJobs).to.equal(1);
+			expect((await agenda.getRunningStats()).lockedJobs).toBe(1);
 		});
 
 		it('does not on-the-fly lock more mixed jobs than agenda._lockLimit jobs', async () => {
@@ -1018,7 +1031,7 @@ describe('Job', () => {
 			]);
 
 			await delay(500);
-			expect((await agenda.getRunningStats()).lockedJobs).to.equal(1);
+			expect((await agenda.getRunningStats()).lockedJobs).toBe(1);
 			await agenda.stop();
 		});
 
@@ -1030,7 +1043,7 @@ describe('Job', () => {
 			await Promise.all([agenda.now('lock job', { i: 1 }), agenda.now('lock job', { i: 2 })]);
 
 			await delay(500);
-			expect((await agenda.getRunningStats()).lockedJobs).to.equal(1);
+			expect((await agenda.getRunningStats()).lockedJobs).toBe(1);
 		});
 
 		it('does not lock more than agenda._lockLimit jobs during processing interval', async () => {
@@ -1049,7 +1062,7 @@ describe('Job', () => {
 			]);
 
 			await delay(500);
-			expect((await agenda.getRunningStats()).lockedJobs).to.equal(1);
+			expect((await agenda.getRunningStats()).lockedJobs).toBe(1);
 		});
 
 		it('does not lock more than definition.lockLimit jobs during processing interval', async () => {
@@ -1067,7 +1080,7 @@ describe('Job', () => {
 			]);
 
 			await delay(500);
-			expect((await agenda.getRunningStats()).lockedJobs).to.equal(1);
+			expect((await agenda.getRunningStats()).lockedJobs).toBe(1);
 			await agenda.stop();
 		});
 	});
@@ -1129,7 +1142,7 @@ describe('Job', () => {
 						}, 2000);
 					})
 				]);
-				expect(results).not.to.contain(2);
+				expect(results).toEqual(expect.not.arrayContaining([2]));
 			} catch (err) {
 				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
 				throw err;
@@ -1171,7 +1184,7 @@ describe('Job', () => {
 						}, 2000);
 					})
 				]);
-				expect(results.join('')).to.eql(results.sort().join(''));
+				expect(results.join('')).toEqual(results.sort().join(''));
 			} catch (err) {
 				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
 				throw err;
@@ -1223,8 +1236,8 @@ describe('Job', () => {
 					})
 				]);
 
-				expect(times.join('')).to.eql(times.sort().join(''));
-				expect(priorities).to.eql([10, 10, -10]);
+				expect(times.join('')).toEqual(times.sort().join(''));
+				expect(priorities).toEqual([10, 10, -10]);
 			} catch (err) {
 				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
 				throw err;
@@ -1267,7 +1280,7 @@ describe('Job', () => {
 						}, 2000);
 					})
 				]);
-				expect(results).to.eql([10, 0, -10]);
+				expect(results).toEqual([10, 0, -10]);
 			} catch (err) {
 				console.log('stats', JSON.stringify(await agenda.getRunningStats(), undefined, 3));
 				throw err;
@@ -1300,7 +1313,7 @@ describe('Job', () => {
 
 			await agenda.jobs({ name: 'everyRunTest1' });
 			await delay(jobTimeout);
-			expect(counter).to.equal(2);
+			expect(counter).toBe(2);
 
 			await agenda.stop();
 		});
@@ -1322,84 +1335,88 @@ describe('Job', () => {
 			await delay(jobTimeout);
 			const result = await agenda.jobs({ name: 'everyRunTest2' });
 
-			expect(result).to.have.length(1);
+			expect(result).toHaveLength(1);
 			await agenda.stop();
 		});
 	});
 
 	describe('Integration Tests', () => {
 		describe('.every()', () => {
-			it('Should not rerun completed jobs after restart', done => {
-				let i = 0;
+			it('Should not rerun completed jobs after restart', () =>
+				new Promise<void>((done, reject) => {
+					let i = 0;
 
-				const serviceError = function (e: any) {
-					done(e);
-				};
+					const serviceError = function (e: any) {
+						done(e);
+					};
 
-				const receiveMessage = function (msg: any) {
-					if (msg === 'ran') {
-						expect(i).to.equal(0);
-						i += 1;
-						// eslint-disable-next-line @typescript-eslint/no-use-before-define
-						startService();
-					} else if (msg === 'notRan') {
-						expect(i).to.equal(1);
-						done();
-					} else {
-						done(new Error('Unexpected response returned!'));
-					}
-				};
-
-				const startService = () => {
-					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-					const n = cp.fork(serverPath, [mongoCfg, 'daily'], {
-						execArgv: ['-r', 'ts-node/register']
-					});
-
-					n.on('message', receiveMessage);
-					n.on('error', serviceError);
-				};
-
-				startService();
-			});
-
-			it('Should properly run jobs when defined via an array', done => {
-				const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-				const n = cp.fork(serverPath, [mongoCfg, 'daily-array'], {
-					execArgv: ['-r', 'ts-node/register']
-				});
-
-				let ran1 = false;
-				let ran2 = false;
-				let doneCalled = false;
-
-				const serviceError = function (e: any) {
-					done(e);
-				};
-
-				const receiveMessage = function (msg: any) {
-					if (msg === 'test1-ran') {
-						ran1 = true;
-						if (ran1 && ran2 && !doneCalled) {
-							doneCalled = true;
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							expect(i).toBe(0);
+							i += 1;
+							// eslint-disable-next-line @typescript-eslint/no-use-before-define
+							startService();
+						} else if (msg === 'notRan') {
+							expect(i).toBe(1);
 							done();
-							n.send('exit');
+						} else {
+							reject(new Error('Unexpected response returned!'));
 						}
-					} else if (msg === 'test2-ran') {
-						ran2 = true;
-						if (ran1 && ran2 && !doneCalled) {
-							doneCalled = true;
-							done();
-							n.send('exit');
-						}
-					} else if (!doneCalled) {
-						done(new Error('Jobs did not run!'));
-					}
-				};
+					};
 
-				n.on('message', receiveMessage);
-				n.on('error', serviceError);
-			});
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, [mongoCfg, 'daily'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			it('Should properly run jobs when defined via an array', () =>
+				new Promise<void>((done, reject) => {
+					{
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, [mongoCfg, 'daily-array'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						let ran1 = false;
+						let ran2 = false;
+						let doneCalled = false;
+
+						const serviceError = function (e: any) {
+							done(e);
+						};
+
+						const receiveMessage = function (msg: any) {
+							if (msg === 'test1-ran') {
+								ran1 = true;
+								if (ran1 && ran2 && !doneCalled) {
+									doneCalled = true;
+									done();
+									n.send('exit');
+								}
+							} else if (msg === 'test2-ran') {
+								ran2 = true;
+								if (ran1 && ran2 && !doneCalled) {
+									doneCalled = true;
+									done();
+									n.send('exit');
+								}
+							} else if (!doneCalled) {
+								reject(new Error('Jobs did not run!'));
+							}
+						};
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					}
+				}));
 
 			it('should not run if job is disabled', async () => {
 				let counter = 0;
@@ -1418,132 +1435,138 @@ describe('Job', () => {
 
 				await delay(jobTimeout);
 				await agenda.jobs({ name: 'everyDisabledTest' });
-				expect(counter).to.equal(0);
+				expect(counter).toBe(0);
 				await agenda.stop();
 			});
 		});
 
 		describe('schedule()', () => {
-			it('Should not run jobs scheduled in the future', done => {
-				let i = 0;
+			it('Should not run jobs scheduled in the future', () =>
+				new Promise<void>((done, reject) => {
+					let i = 0;
 
-				const serviceError = function (e: any) {
-					done(e);
-				};
+					const serviceError = function (e: any) {
+						done(e);
+					};
 
-				const receiveMessage = function (msg: any) {
-					if (msg === 'notRan') {
-						if (i < 5) {
-							done();
-							return;
+					const receiveMessage = function (msg: any) {
+						if (msg === 'notRan') {
+							if (i < 5) {
+								done();
+								return;
+							}
+
+							i += 1;
+							// eslint-disable-next-line @typescript-eslint/no-use-before-define
+							startService();
+						} else {
+							reject(new Error('Job scheduled in future was ran!'));
 						}
+					};
 
-						i += 1;
-						// eslint-disable-next-line @typescript-eslint/no-use-before-define
-						startService();
-					} else {
-						done(new Error('Job scheduled in future was ran!'));
-					}
-				};
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, [mongoCfg, 'define-future-job'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
 
-				const startService = () => {
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			it('Should run past due jobs when process starts', () =>
+				new Promise<void>((done, reject) => {
+					const serviceError = function (e: any) {
+						done(e);
+					};
+
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							done();
+						} else {
+							reject(new Error('Past due job did not run!'));
+						}
+					};
+
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, [mongoCfg, 'define-past-due-job'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			it('Should schedule using array of names', () =>
+				new Promise<void>((done, reject) => {
 					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-					const n = cp.fork(serverPath, [mongoCfg, 'define-future-job'], {
+					const n = cp.fork(serverPath, [mongoCfg, 'schedule-array'], {
 						execArgv: ['-r', 'ts-node/register']
 					});
 
+					let ran1 = false;
+					let ran2 = false;
+					let doneCalled = false;
+
+					const serviceError = (err: any) => {
+						done(err);
+					};
+
+					const receiveMessage = (msg: any) => {
+						if (msg === 'test1-ran') {
+							ran1 = true;
+							if (ran1 && ran2 && !doneCalled) {
+								doneCalled = true;
+								done();
+								n.send('exit');
+							}
+						} else if (msg === 'test2-ran') {
+							ran2 = true;
+							if (ran1 && ran2 && !doneCalled) {
+								doneCalled = true;
+								done();
+								n.send('exit');
+							}
+						} else if (!doneCalled) {
+							reject(new Error('Jobs did not run!'));
+						}
+					};
+
 					n.on('message', receiveMessage);
 					n.on('error', serviceError);
-				};
-
-				startService();
-			});
-
-			it('Should run past due jobs when process starts', done => {
-				const serviceError = function (e: any) {
-					done(e);
-				};
-
-				const receiveMessage = function (msg: any) {
-					if (msg === 'ran') {
-						done();
-					} else {
-						done(new Error('Past due job did not run!'));
-					}
-				};
-
-				const startService = () => {
-					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-					const n = cp.fork(serverPath, [mongoCfg, 'define-past-due-job'], {
-						execArgv: ['-r', 'ts-node/register']
-					});
-
-					n.on('message', receiveMessage);
-					n.on('error', serviceError);
-				};
-
-				startService();
-			});
-
-			it('Should schedule using array of names', done => {
-				const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-				const n = cp.fork(serverPath, [mongoCfg, 'schedule-array'], {
-					execArgv: ['-r', 'ts-node/register']
-				});
-
-				let ran1 = false;
-				let ran2 = false;
-				let doneCalled = false;
-
-				const serviceError = (err: any) => {
-					done(err);
-				};
-
-				const receiveMessage = (msg: any) => {
-					if (msg === 'test1-ran') {
-						ran1 = true;
-						if (ran1 && ran2 && !doneCalled) {
-							doneCalled = true;
-							done();
-							n.send('exit');
-						}
-					} else if (msg === 'test2-ran') {
-						ran2 = true;
-						if (ran1 && ran2 && !doneCalled) {
-							doneCalled = true;
-							done();
-							n.send('exit');
-						}
-					} else if (!doneCalled) {
-						done(new Error('Jobs did not run!'));
-					}
-				};
-
-				n.on('message', receiveMessage);
-				n.on('error', serviceError);
-			});
+				}));
 		});
 
 		describe('now()', () => {
-			it('Should immediately run the job', done => {
-				const serviceError = function (e: any) {
-					done(e);
-				};
+			it('Should immediately run the job', () =>
+				new Promise<void>((done, reject) => {
+					const serviceError = function (e: any) {
+						done(e);
+					};
 
-				const receiveMessage = function (msg: any) {
-					if (msg === 'ran') {
-						return done();
-					}
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							return done();
+						}
 
-					return done(new Error('Job did not immediately run!'));
-				};
+						return reject(new Error('Job did not immediately run!'));
+					};
 
-				const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-				const n = cp.fork(serverPath, [mongoCfg, 'now'], { execArgv: ['-r', 'ts-node/register'] });
+					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+					const n = cp.fork(serverPath, [mongoCfg, 'now'], {
+						execArgv: ['-r', 'ts-node/register']
+					});
 
-				n.on('message', receiveMessage);
-				n.on('error', serviceError);
-			});
+					n.on('message', receiveMessage);
+					n.on('error', serviceError);
+				}));
 		});
 
 		describe('General Integration', () => {
@@ -1564,9 +1587,9 @@ describe('Job', () => {
 
 				await delay(jobTimeout);
 				const ids = Object.keys(runCount);
-				expect(ids).to.have.length(10);
+				expect(ids).toHaveLength(10);
 				Object.keys(runCount).forEach(id => {
-					expect(runCount[id]).to.equal(1);
+					expect(runCount[id]).toBe(1);
 				});
 			});
 		});
@@ -1586,7 +1609,7 @@ describe('Job', () => {
 			agenda.on('start:test', resolve);
 		});
 
-		expect(await job.isRunning()).to.be.equal(true);
+		expect(await job.isRunning()).toBe(true);
 	});
 
 	it('should not run job if is has been removed', async () => {
@@ -1615,7 +1638,7 @@ describe('Job', () => {
 			retried++;
 		} while (!jobStarted[0].lockedAt || retried > 10);
 
-		expect(jobStarted[0].lockedAt).to.exist; // .equal(null);
+		expect(jobStarted[0].lockedAt).toBeDefined(); // .equal(null);
 
 		await job.remove();
 
@@ -1636,9 +1659,11 @@ describe('Job', () => {
 			completed
 		]);
 
-		expect(executed).to.be.equal(false);
+		expect(executed).toBe(false);
 		assert.ok(typeof error !== 'undefined');
-		expect(error.message).to.includes('(name: test) cannot be updated in the database');
+		expect(error.message).toEqual(
+			expect.arrayContaining(['(name: test) cannot be updated in the database'])
+		);
 	});
 
 	describe('job fork mode', () => {
@@ -1654,7 +1679,7 @@ describe('Job', () => {
 				}
 			});
 
-			expect(agendaFork.forkHelper?.path).to.be.eq('./test/helpers/forkHelper.ts');
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
 
 			const job = agendaFork.create('some job');
 			job.forkMode(true);
@@ -1667,7 +1692,7 @@ describe('Job', () => {
 				throw new Error('job not found');
 			}
 
-			expect(jobData.fork).to.be.eq(true);
+			expect(jobData.fork).toBe(true);
 
 			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
 			someJobDefinition(agendaFork);
@@ -1680,9 +1705,9 @@ describe('Job', () => {
 			} while (await job.isRunning());
 
 			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
-			expect(jobDataFinished?.failReason).to.be.eq(null);
-			expect(jobDataFinished?.failCount).to.be.eq(null);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).toBe(null);
+			expect(jobDataFinished?.failCount).toBe(null);
 		});
 
 		it('runs a job in fork mode, but let it fail', async () => {
@@ -1697,7 +1722,7 @@ describe('Job', () => {
 				}
 			});
 
-			expect(agendaFork.forkHelper?.path).to.be.eq('./test/helpers/forkHelper.ts');
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
 
 			const job = agendaFork.create('some job', { failIt: 'error' });
 			job.forkMode(true);
@@ -1710,7 +1735,7 @@ describe('Job', () => {
 				throw new Error('job not found');
 			}
 
-			expect(jobData.fork).to.be.eq(true);
+			expect(jobData.fork).toBe(true);
 
 			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
 			someJobDefinition(agendaFork);
@@ -1723,9 +1748,9 @@ describe('Job', () => {
 			} while (await job.isRunning());
 
 			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
-			expect(jobDataFinished?.failReason).to.not.be.eq(null);
-			expect(jobDataFinished?.failCount).to.be.eq(1);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).not.toBe(null);
+			expect(jobDataFinished?.failCount).toBe(1);
 		});
 
 		it('runs a job in fork mode, but let it die', async () => {
@@ -1740,7 +1765,7 @@ describe('Job', () => {
 				}
 			});
 
-			expect(agendaFork.forkHelper?.path).to.be.eq('./test/helpers/forkHelper.ts');
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
 
 			const job = agendaFork.create('some job', { failIt: 'die' });
 			job.forkMode(true);
@@ -1753,7 +1778,7 @@ describe('Job', () => {
 				throw new Error('job not found');
 			}
 
-			expect(jobData.fork).to.be.eq(true);
+			expect(jobData.fork).toBe(true);
 
 			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
 			someJobDefinition(agendaFork);
@@ -1766,9 +1791,9 @@ describe('Job', () => {
 			} while (await job.isRunning());
 
 			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
-			expect(jobDataFinished?.failReason).to.not.be.eq(null);
-			expect(jobDataFinished?.failCount).to.be.eq(1);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).not.toBe(null);
+			expect(jobDataFinished?.failCount).toBe(1);
 		});
 	});
 });

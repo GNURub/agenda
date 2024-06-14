@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import { fail } from 'assert';
-import { expect } from 'chai';
+import { fail } from 'node:assert';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { Agenda, type AgendaDBAdapter } from '@agenda/agenda';
 import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
@@ -17,8 +17,6 @@ const clearJobs = async (): Promise<void> => {
 };
 
 describe('JobProcessor', () => {
-	// this.timeout(1000000);
-
 	beforeEach(async () => {
 		if (!adapter) {
 			adapter = new AgendaMemoryAdapter();
@@ -54,7 +52,7 @@ describe('JobProcessor', () => {
 				await agenda.getRunningStats();
 				fail();
 			} catch (err: any) {
-				expect(err.message).to.be.equal('agenda not running!');
+				expect(err.message).toBe('agenda not running!');
 			}
 		});
 
@@ -62,8 +60,8 @@ describe('JobProcessor', () => {
 			await agenda.start();
 
 			const status = await agenda.getRunningStats();
-			expect(status).to.have.property('version');
-			expect(status.version).to.match(/\d+.\d+.\d+/);
+			expect(status).toHaveProperty('version');
+			expect(status.version).toMatch(/\d+.\d+.\d+/);
 		});
 
 		it('shows the correct job status', async () => {
@@ -81,16 +79,16 @@ describe('JobProcessor', () => {
 			});
 
 			const status = await agenda.getRunningStats();
-			expect(status).to.have.property('jobStatus');
+			expect(status).toHaveProperty('jobStatus');
 			if (status.jobStatus) {
-				expect(status.jobStatus).to.have.property('test');
-				expect(status.jobStatus.test.locked).to.be.equal(1);
-				expect(status.jobStatus.test.running).to.be.equal(1);
-				expect(status.jobStatus.test.config.fn).to.be.a('function');
-				expect(status.jobStatus.test.config.concurrency).to.be.equal(1);
-				expect(status.jobStatus.test.config.lockLifetime).to.be.equal(600000);
-				expect(status.jobStatus.test.config.priority).to.be.equal(0);
-				expect(status.jobStatus.test.config.lockLimit).to.be.equal(6);
+				expect(status.jobStatus).toHaveProperty('test');
+				expect(status.jobStatus.test.locked).toBe(1);
+				expect(status.jobStatus.test.running).toBe(1);
+				expect(status.jobStatus.test.config.fn).toBeInstanceOf(Function);
+				expect(status.jobStatus.test.config.concurrency).toBe(1);
+				expect(status.jobStatus.test.config.lockLifetime).toBe(600000);
+				expect(status.jobStatus.test.config.priority).toBe(0);
+				expect(status.jobStatus.test.config.lockLimit).toBe(6);
 			}
 		});
 
@@ -98,27 +96,27 @@ describe('JobProcessor', () => {
 			await agenda.start();
 
 			const status = await agenda.getRunningStats();
-			expect(status).to.have.property('isLockingOnTheFly');
-			expect(status.isLockingOnTheFly).to.be.a('boolean');
-			expect(status.isLockingOnTheFly).to.be.equal(false);
+			expect(status).toHaveProperty('isLockingOnTheFly');
+			expect(status.isLockingOnTheFly).toBeTypeOf('boolean');
+			expect(status.isLockingOnTheFly).toBe(false);
 		});
 
 		it('shows queueName', async () => {
 			await agenda.start();
 
 			const status = await agenda.getRunningStats();
-			expect(status).to.have.property('queueName');
-			expect(status.queueName).to.be.a('string');
-			expect(status.queueName).to.be.equal('agendaTest');
+			expect(status).toHaveProperty('queueName');
+			expect(typeof status.queueName).toBe('string');
+			expect(status.queueName).toBe('agendaTest');
 		});
 
 		it('shows totalQueueSizeDB', async () => {
 			await agenda.start();
 
 			const status = await agenda.getRunningStats();
-			expect(status).to.have.property('totalQueueSizeDB');
-			expect(status.totalQueueSizeDB).to.be.a('number');
-			expect(status.totalQueueSizeDB).to.be.equal(0);
+			expect(status).toHaveProperty('totalQueueSizeDB');
+			expect(status.totalQueueSizeDB).toBeTypeOf('number');
+			expect(status.totalQueueSizeDB).toBe(0);
 		});
 	});
 
@@ -157,7 +155,7 @@ describe('JobProcessor', () => {
 			setTimeout(resolve, 1000);
 		});
 
-		expect(shortOneFinished).to.be.equal(true);
+		expect(shortOneFinished).toBe(true);
 	});
 
 	it('ensure slow jobs time out', async () => {
@@ -188,8 +186,8 @@ describe('JobProcessor', () => {
 			});
 		});
 
-		expect(jobStarted).to.be.equal(true);
-		expect(promiseResult).to.be.an('error');
+		expect(jobStarted).toBe(true);
+		expect(promiseResult).toBeInstanceOf(Error);
 	});
 
 	it('ensure slow jobs do not time out when calling touch', async () => {
@@ -221,7 +219,7 @@ describe('JobProcessor', () => {
 			});
 		});
 
-		expect(promiseResult).to.not.be.an('error');
+		expect(promiseResult).not.toBeInstanceOf(Error);
 	});
 
 	it('ensure concurrency is filled up', async () => {
@@ -272,6 +270,6 @@ describe('JobProcessor', () => {
 					);
 				})
 			])
-		).to.equal('all started');
+		).toBe('all started');
 	});
 });

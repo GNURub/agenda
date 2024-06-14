@@ -56,21 +56,20 @@
   "devDependencies": {
     "@agenda/agenda": "*",
     "@agenda/filesystem-adapter": "*",
-    "@agenda/mongodb-adapter": "*",
     "@agenda/memory-adapter": "*",
+    "@agenda/mongodb-adapter": "*",
     "@hokify/eslint-config": "^2.10.3",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.16",
     "@types/debug": "^4.1.12",
     "@types/human-interval": "^1.0.2",
     "@types/luxon": "^3.4.2",
-    "@types/mocha": "^10.0.6",
     "@types/node": "^20.14.2",
     "@types/sinon": "^17.0.3",
     "chai": "^5.1.1",
     "delay": "5.0.0",
     "eslint": "^9.4.0",
-    "mocha": "10.4.0",
+    "luxon": "^3.2.1",
     "mongodb": "^6.7.0",
     "mongodb-memory-server": "^9.3.0",
     "nx": "19.3.0",
@@ -80,6 +79,7 @@
     "standard-version": "^9.5.0",
     "ts-node": "^10.9.2",
     "typedoc": "^0.25.13",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
   }
 }
