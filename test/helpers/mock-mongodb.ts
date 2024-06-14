@@ -1,6 +1,6 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import debug from 'debug';
 import { MongoClient } from 'mongodb';
-import * as debug from 'debug';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 const log = debug('agenda:mock-mongodb');
 

@@ -1,12 +1,11 @@
-import * as date from 'date.js';
-import * as debug from 'debug';
-import { ObjectId } from 'mongodb';
 import { ChildProcess, fork } from 'child_process';
+import * as date from 'date.js';
+import debug from 'debug';
 import type { Agenda } from './index';
 import type { DefinitionProcessor } from './types/JobDefinition';
-import { IJobParameters, datefields, TJobDatefield } from './types/JobParameters';
-import { JobPriority, parsePriority } from './utils/priority';
+import { datefields, IJobParameters, TJobDatefield } from './types/JobParameters';
 import { computeFromInterval, computeFromRepeatAt } from './utils/nextRunAt';
+import { JobPriority, parsePriority } from './utils/priority';
 
 const log = debug('agenda:job');
 
@@ -35,7 +34,7 @@ export class Job<DATA = unknown | void> {
 		if (this.forkedChild) {
 			try {
 				this.forkedChild.send('cancel');
-				console.info('canceled child', this.attrs.name, this.attrs._id);
+				console.info('canceled child', this.attrs.name, this.attrs.id);
 			} catch (err) {
 				console.log('cannot send cancel to child');
 			}
@@ -213,18 +212,18 @@ export class Job<DATA = unknown | void> {
 		log(
 			'[%s:%s] fail() called [%d] times so far',
 			this.attrs.name,
-			this.attrs._id,
+			this.attrs.id,
 			this.attrs.failCount
 		);
 		return this;
 	}
 
 	private async fetchStatus(): Promise<void> {
-		const dbJob = await this.agenda.db.getJobs({ _id: this.attrs._id });
+		const dbJob = await this.agenda.db.getJobs({ id: this.attrs.id });
 		if (!dbJob || dbJob.length === 0) {
 			// @todo: should we just return false instead? a finished job could have been removed from database,
 			// and then this would throw...
-			throw new Error(`job with id ${this.attrs._id} not found in database`);
+			throw new Error(`job with id ${this.attrs.id} not found in database`);
 		}
 
 		this.attrs.lastRunAt = dbJob[0].lastRunAt;
@@ -282,7 +281,7 @@ export class Job<DATA = unknown | void> {
 	 * Remove the job from database
 	 */
 	remove(): Promise<number> {
-		return this.agenda.cancel({ _id: this.attrs._id });
+		return this.agenda.cancel({ id: this.attrs.id });
 	}
 
 	async isDead(): Promise<boolean> {
@@ -329,7 +328,7 @@ export class Job<DATA = unknown | void> {
 				log(
 					'[%s:%s] nextRunAt set to [%s]',
 					this.attrs.name,
-					this.attrs._id,
+					this.attrs.id,
 					new Date(this.attrs.nextRunAt).toISOString()
 				);
 			} else if (this.attrs.repeatAt) {
@@ -338,7 +337,7 @@ export class Job<DATA = unknown | void> {
 				log(
 					'[%s:%s] nextRunAt set to [%s]',
 					this.attrs.name,
-					this.attrs._id,
+					this.attrs.id,
 					this.attrs.nextRunAt.toISOString()
 				);
 			} else {
@@ -357,7 +356,7 @@ export class Job<DATA = unknown | void> {
 		log(
 			'[%s:%s] setting lastRunAt to: %s',
 			this.attrs.name,
-			this.attrs._id,
+			this.attrs.id,
 			this.attrs.lastRunAt.toISOString()
 		);
 		this.computeNextRunAt();
@@ -366,7 +365,7 @@ export class Job<DATA = unknown | void> {
 		try {
 			this.agenda.emit('start', this);
 			this.agenda.emit(`start:${this.attrs.name}`, this);
-			log('[%s:%s] starting job', this.attrs.name, this.attrs._id);
+			log('[%s:%s] starting job', this.attrs.name, this.attrs.id);
 
 			if (this.attrs.fork) {
 				if (!this.agenda.forkHelper) {
@@ -379,7 +378,7 @@ export class Job<DATA = unknown | void> {
 						forkHelper.path,
 						[
 							this.attrs.name,
-							this.attrs._id!.toString(),
+							this.attrs.id!.toString(),
 							this.agenda.definitions[this.attrs.name].filePath || ''
 						],
 						forkHelper.options
@@ -392,7 +391,7 @@ export class Job<DATA = unknown | void> {
 								'fork parameters',
 								forkHelper,
 								this.attrs.name,
-								this.attrs._id,
+								this.attrs.id,
 								this.agenda.definitions[this.attrs.name].filePath
 							);
 							const error = new Error(`child process exited with code: ${code}`);
@@ -423,25 +422,25 @@ export class Job<DATA = unknown | void> {
 
 			this.agenda.emit('success', this);
 			this.agenda.emit(`success:${this.attrs.name}`, this);
-			log('[%s:%s] has succeeded', this.attrs.name, this.attrs._id);
+			log('[%s:%s] has succeeded', this.attrs.name, this.attrs.id);
 		} catch (error: any) {
-			log('[%s:%s] unknown error occurred', this.attrs.name, this.attrs._id);
+			log('[%s:%s] unknown error occurred', this.attrs.name, this.attrs.id);
 
 			this.fail(error);
 
 			this.agenda.emit('fail', error, this);
 			this.agenda.emit(`fail:${this.attrs.name}`, error, this);
-			log('[%s:%s] has failed [%s]', this.attrs.name, this.attrs._id, error.message);
+			log('[%s:%s] has failed [%s]', this.attrs.name, this.attrs.id, error.message);
 		} finally {
 			this.forkedChild = undefined;
 			this.attrs.lockedAt = undefined;
 			try {
 				await this.agenda.db.saveJobState(this);
-				log('[%s:%s] was saved successfully to MongoDB', this.attrs.name, this.attrs._id);
+				log('[%s:%s] was saved successfully to MongoDB', this.attrs.name, this.attrs.id);
 			} catch (err) {
 				// in case this fails, we ignore it
 				// this can e.g. happen if the job gets removed during the execution
-				log('[%s:%s] was not saved to MongoDB', this.attrs.name, this.attrs._id, err);
+				log('[%s:%s] was not saved to MongoDB', this.attrs.name, this.attrs.id, err);
 			}
 
 			this.agenda.emit('complete', this);
@@ -449,7 +448,7 @@ export class Job<DATA = unknown | void> {
 			log(
 				'[%s:%s] job finished at [%s] and was unlocked',
 				this.attrs.name,
-				this.attrs._id,
+				this.attrs.id,
 				this.attrs.lastFinishedAt
 			);
 		}
@@ -459,12 +458,12 @@ export class Job<DATA = unknown | void> {
 		const definition = this.agenda.definitions[this.attrs.name];
 
 		if (!definition) {
-			log('[%s:%s] has no definition, can not run', this.attrs.name, this.attrs._id);
+			log('[%s:%s] has no definition, can not run', this.attrs.name, this.attrs.id);
 			throw new Error('Undefined job');
 		}
 
 		if (definition.fn.length === 2) {
-			log('[%s:%s] process function being called', this.attrs.name, this.attrs._id);
+			log('[%s:%s] process function being called', this.attrs.name, this.attrs.id);
 			await new Promise<void>((resolve, reject) => {
 				try {
 					const result = definition.fn(this as Job, error => {
@@ -483,7 +482,7 @@ export class Job<DATA = unknown | void> {
 				}
 			});
 		} else {
-			log('[%s:%s] process function being called', this.attrs.name, this.attrs._id);
+			log('[%s:%s] process function being called', this.attrs.name, this.attrs.id);
 			await (definition.fn as DefinitionProcessor<DATA, void>)(this);
 		}
 	}
@@ -493,4 +492,4 @@ export class Job<DATA = unknown | void> {
 	}
 }
 
-export type JobWithId = Job & { attrs: IJobParameters & { _id: ObjectId } };
+export type JobWithId = Job & { attrs: IJobParameters & { id: string } };

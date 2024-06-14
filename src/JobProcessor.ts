@@ -1,15 +1,13 @@
-import * as debug from 'debug';
-import type { IAgendaJobStatus, IAgendaStatus } from './types/AgendaStatus';
-import type { IJobDefinition } from './types/JobDefinition';
+import debug from 'debug';
+import { version as agendaVersion } from '../package.json';
 import type { Agenda, JobWithId } from './index';
-import type { IJobParameters } from './types/JobParameters';
 import { Job } from './Job';
 import { JobProcessingQueue } from './JobProcessingQueue';
+import type { IAgendaJobStatus, IAgendaStatus } from './types/AgendaStatus';
+import type { IJobDefinition } from './types/JobDefinition';
+import type { IJobParameters } from './types/JobParameters';
 
 const log = debug('agenda:jobProcessor');
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires,global-require
-const { version: agendaVersion } = require('../package.json');
 
 const MAX_SAFE_32BIT_INTEGER = 2 ** 31; // Math.pow(2,31);
 
@@ -26,7 +24,6 @@ export class JobProcessor {
 
 	async getStatus(fullDetails = false): Promise<IAgendaStatus> {
 		const jobStatus = Object.keys(this.jobStatus).reduce((obj, key) => {
-			// eslint-disable-next-line no-param-reassign
 			obj[key] = {
 				...this.jobStatus[key],
 				config: this.agenda.definitions[key]
@@ -52,32 +49,32 @@ export class JobProcessor {
 				: this.jobQueue.getQueue().map(job => ({
 						...job.toJson(),
 						canceled: job.getCanceledMessage()
-				  })),
+					})),
 			runningJobs: !fullDetails
 				? this.runningJobs.length
 				: this.runningJobs.map(job => ({
 						...job.toJson(),
 						canceled: job.getCanceledMessage()
-				  })),
+					})),
 			lockedJobs: !fullDetails
 				? this.lockedJobs.length
 				: this.lockedJobs.map(job => ({
 						...job.toJson(),
 						canceled: job.getCanceledMessage()
-				  })),
+					})),
 			jobsToLock: !fullDetails
 				? this.jobsToLock.length
 				: this.jobsToLock.map(job => ({
 						...job.toJson(),
 						canceled: job.getCanceledMessage()
-				  })),
+					})),
 			isLockingOnTheFly: this.isLockingOnTheFly
 		};
 	}
 
 	private nextScanAt = new Date();
 
-	private jobQueue: JobProcessingQueue = new JobProcessingQueue(this.agenda);
+	private jobQueue: JobProcessingQueue;
 
 	private runningJobs: JobWithId[] = [];
 
@@ -100,6 +97,7 @@ export class JobProcessor {
 		private processEvery: number
 	) {
 		log('creating interval to call processJobs every [%dms]', processEvery);
+		this.jobQueue = new JobProcessingQueue(this.agenda);
 		this.processInterval = setInterval(() => this.process(), processEvery);
 		this.process();
 	}
@@ -230,7 +228,7 @@ export class JobProcessor {
 				// Jobs that were waiting to be locked will be picked up during a
 				// future locking interval.
 				if (!this.shouldLock(job.attrs.name)) {
-					log.extend('lockOnTheFly')('lock limit hit for: [%s:%S]', job.attrs.name, job.attrs._id);
+					log.extend('lockOnTheFly')('lock limit hit for: [%s:%S]', job.attrs.name, job.attrs.id);
 					this.jobsToLock = [];
 					return;
 				}
@@ -262,7 +260,7 @@ export class JobProcessor {
 					log.extend('lockOnTheFly')(
 						'found job [%s:%s] that can be locked on the fly',
 						jobToEnqueue.attrs.name,
-						jobToEnqueue.attrs._id
+						jobToEnqueue.attrs.id
 					);
 					this.updateStatus(jobToEnqueue.attrs.name, 'locked', +1);
 					this.lockedJobs.push(jobToEnqueue);
@@ -296,7 +294,7 @@ export class JobProcessor {
 		if (result) {
 			log.extend('findAndLockNextJob')(
 				'found a job available to lock, creating a new job on Agenda with id [%s]',
-				result._id
+				result.id
 			);
 			return new Job(this.agenda, result, true) as JobWithId;
 		}
@@ -348,11 +346,7 @@ export class JobProcessor {
 					return;
 				}
 
-				log.extend('jobQueueFilling')(
-					'[%s:%s] job locked while filling queue',
-					name,
-					job.attrs._id
-				);
+				log.extend('jobQueueFilling')('[%s:%s] job locked while filling queue', name, job.attrs.id);
 				this.updateStatus(name, 'locked', +1);
 				this.lockedJobs.push(job);
 
@@ -374,7 +368,7 @@ export class JobProcessor {
 	 * handledJobs keeps list of already processed jobs
 	 * @returns {undefined}
 	 */
-	private async jobProcessing(handledJobs: IJobParameters['_id'][] = []) {
+	private async jobProcessing(handledJobs: IJobParameters['id'][] = []) {
 		// Ensure we have jobs
 		if (this.jobQueue.length === 0) {
 			return;
@@ -402,7 +396,7 @@ export class JobProcessor {
 				log.extend('jobProcessing')(
 					'[%s:%s] there is a job to process (priority = %d)',
 					job.attrs.name,
-					job.attrs._id,
+					job.attrs.id,
 					job.attrs.priority,
 					job.gotTimerToExecute
 				);
@@ -413,7 +407,7 @@ export class JobProcessor {
 					log.extend('jobProcessing')(
 						'[%s:%s] nextRunAt is in the past, run the job immediately',
 						job.attrs.name,
-						job.attrs._id
+						job.attrs.id
 					);
 					this.runOrRetry(job);
 				} else {
@@ -423,17 +417,15 @@ export class JobProcessor {
 						log.extend('runOrRetry')(
 							'[%s:%s] job is too far away, freeing it up',
 							job.attrs.name,
-							job.attrs._id
+							job.attrs.id
 						);
 						let lockedJobIndex = this.lockedJobs.indexOf(job);
 						if (lockedJobIndex === -1) {
 							// lookup by id
-							lockedJobIndex = this.lockedJobs.findIndex(
-								j => j.attrs._id?.toString() === job.attrs._id?.toString()
-							);
+							lockedJobIndex = this.lockedJobs.findIndex(j => j.attrs.id === job.attrs.id);
 						}
 						if (lockedJobIndex === -1) {
-							throw new Error(`cannot find job ${job.attrs._id} in locked jobs queue?`);
+							throw new Error(`cannot find job ${job.attrs.id} in locked jobs queue?`);
 						}
 
 						this.lockedJobs.splice(lockedJobIndex, 1);
@@ -442,7 +434,7 @@ export class JobProcessor {
 						log.extend('jobProcessing')(
 							'[%s:%s] nextRunAt is in the future, calling setTimeout(%d)',
 							job.attrs.name,
-							job.attrs._id,
+							job.attrs.id,
 							runIn
 						);
 						// re add to queue (puts it at the right position in the queue)
@@ -462,7 +454,7 @@ export class JobProcessor {
 				}
 			}
 
-			handledJobs.push(job.attrs._id);
+			handledJobs.push(job.attrs.id);
 
 			if (job && this.localQueueProcessing < this.maxConcurrency) {
 				// additionally run again and check if there are more jobs that we can process right now (as long concurrency not reached)
@@ -500,58 +492,64 @@ export class JobProcessor {
 
 			let jobIsRunning = true;
 			try {
-				log.extend('runOrRetry')('[%s:%s] processing job', job.attrs.name, job.attrs._id);
+				log.extend('runOrRetry')('[%s:%s] processing job', job.attrs.name, job.attrs.id);
 
 				// check if the job is still alive
 				const checkIfJobIsStillAlive = () =>
 					// check every "this.agenda.definitions[job.attrs.name].lockLifetime / 2"" (or at mininum every processEvery)
 					new Promise<void>((resolve, reject) => {
-						setTimeout(async () => {
-							// when job is not running anymore, just finish
-							if (!jobIsRunning) {
-								log.extend('runOrRetry')(
-									'[%s:%s] checkIfJobIsStillAlive detected job is not running anymore. stopping check.',
-									job.attrs.name,
-									job.attrs._id
-								);
-								resolve();
-								return;
-							}
+						setTimeout(
+							async () => {
+								// when job is not running anymore, just finish
+								if (!jobIsRunning) {
+									log.extend('runOrRetry')(
+										'[%s:%s] checkIfJobIsStillAlive detected job is not running anymore. stopping check.',
+										job.attrs.name,
+										job.attrs.id
+									);
+									resolve();
+									return;
+								}
 
-							if (await job.isExpired()) {
-								log.extend('runOrRetry')(
-									'[%s:%s] checkIfJobIsStillAlive detected an expired job, killing it.',
-									job.attrs.name,
-									job.attrs._id
-								);
+								if (await job.isExpired()) {
+									log.extend('runOrRetry')(
+										'[%s:%s] checkIfJobIsStillAlive detected an expired job, killing it.',
+										job.attrs.name,
+										job.attrs.id
+									);
 
-								reject(
-									new Error(
-										`execution of '${job.attrs.name}' canceled, execution took more than ${
-											this.agenda.definitions[job.attrs.name].lockLifetime
-										}ms. Call touch() for long running jobs to keep them alive.`
-									)
-								);
-								return;
-							}
+									reject(
+										new Error(
+											`execution of '${job.attrs.name}' canceled, execution took more than ${
+												this.agenda.definitions[job.attrs.name].lockLifetime
+											}ms. Call touch() for long running jobs to keep them alive.`
+										)
+									);
+									return;
+								}
 
-							if (!job.attrs.lockedAt) {
-								log.extend('runOrRetry')(
-									'[%s:%s] checkIfJobIsStillAlive detected a job without a lockedAt value, killing it.',
-									job.attrs.name,
-									job.attrs._id
-								);
+								if (!job.attrs.lockedAt) {
+									log.extend('runOrRetry')(
+										'[%s:%s] checkIfJobIsStillAlive detected a job without a lockedAt value, killing it.',
+										job.attrs.name,
+										job.attrs.id
+									);
 
-								reject(
-									new Error(
-										`execution of '${job.attrs.name}' canceled, no lockedAt date found. Ensure to call touch() for long running jobs to keep them alive.`
-									)
-								);
-								return;
-							}
+									reject(
+										new Error(
+											`execution of '${job.attrs.name}' canceled, no lockedAt date found. Ensure to call touch() for long running jobs to keep them alive.`
+										)
+									);
+									return;
+								}
 
-							resolve(checkIfJobIsStillAlive());
-						}, Math.max(this.processEvery / 2, this.agenda.definitions[job.attrs.name].lockLifetime / 2));
+								resolve(checkIfJobIsStillAlive());
+							},
+							Math.max(
+								this.processEvery / 2,
+								this.agenda.definitions[job.attrs.name].lockLifetime / 2
+							)
+						);
 					});
 				// CALL THE ACTUAL METHOD TO PROCESS THE JOB!!!
 				await Promise.race([job.run(), checkIfJobIsStillAlive()]);
@@ -559,14 +557,14 @@ export class JobProcessor {
 				log.extend('runOrRetry')(
 					'[%s:%s] processing job successfull',
 					job.attrs.name,
-					job.attrs._id
+					job.attrs.id
 				);
 
 				// Job isn't in running jobs so throw an error
 				if (!this.runningJobs.includes(job)) {
 					log.extend('runOrRetry')(
 						'[%s] callback was called, job must have been marked as complete already',
-						job.attrs._id
+						job.attrs.id
 					);
 					throw new Error(
 						`callback already called - job ${job.attrs.name} already marked complete`
@@ -577,7 +575,7 @@ export class JobProcessor {
 				log.extend('runOrRetry')(
 					'[%s:%s] processing job failed',
 					job.attrs.name,
-					job.attrs._id,
+					job.attrs.id,
 					error
 				);
 				this.agenda.emit('error', error);
@@ -588,13 +586,11 @@ export class JobProcessor {
 				let runningJobIndex = this.runningJobs.indexOf(job);
 				if (runningJobIndex === -1) {
 					// lookup by id
-					runningJobIndex = this.runningJobs.findIndex(
-						j => j.attrs._id?.toString() === job.attrs._id?.toString()
-					);
+					runningJobIndex = this.runningJobs.findIndex(j => j.attrs.id === job.attrs.id);
 				}
 				if (runningJobIndex === -1) {
 					// eslint-disable-next-line no-unsafe-finally
-					throw new Error(`cannot find job ${job.attrs._id} in running jobs queue?`);
+					throw new Error(`cannot find job ${job.attrs.id} in running jobs queue?`);
 				}
 				this.runningJobs.splice(runningJobIndex, 1);
 				this.updateStatus(job.attrs.name, 'running', -1);
@@ -603,13 +599,11 @@ export class JobProcessor {
 				let lockedJobIndex = this.lockedJobs.indexOf(job);
 				if (lockedJobIndex === -1) {
 					// lookup by id
-					lockedJobIndex = this.lockedJobs.findIndex(
-						j => j.attrs._id?.toString() === job.attrs._id?.toString()
-					);
+					lockedJobIndex = this.lockedJobs.findIndex(j => j.attrs.id === job.attrs.id);
 				}
 				if (lockedJobIndex === -1) {
 					// eslint-disable-next-line no-unsafe-finally
-					throw new Error(`cannot find job ${job.attrs._id} in locked jobs queue?`);
+					throw new Error(`cannot find job ${job.attrs.id} in locked jobs queue?`);
 				}
 				this.lockedJobs.splice(lockedJobIndex, 1);
 				this.updateStatus(job.attrs.name, 'locked', -1);
@@ -624,7 +618,7 @@ export class JobProcessor {
 		log.extend('runOrRetry')(
 			'[%s:%s] concurrency preventing immediate run, pushing job to top of queue',
 			job.attrs.name,
-			job.attrs._id
+			job.attrs.id
 		);
 		this.enqueueJob(job);
 	}

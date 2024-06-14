@@ -1,14 +1,19 @@
 import { Agenda } from '../../src';
+import { AgendaMongoAdapter } from '../../src/adapters/mongodb.adapter';
 import addTests from './add-tests';
 
 const connStr = process.argv[2];
 const tests = process.argv.slice(3);
 
+const adapter = new AgendaMongoAdapter({
+	db: {
+		address: connStr
+	}
+});
+
 const agenda = new Agenda(
 	{
-		db: {
-			address: connStr
-		},
+		adapter,
 		processEvery: 100
 	},
 	async () => {

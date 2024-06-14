@@ -1,14 +1,14 @@
 // eslint-disable-next-line prettier/prettier
-import type {Job, JobWithId} from './Job';
-import type { IJobParameters } from './types/JobParameters';
 import type { Agenda } from './index';
+import type { Job, JobWithId } from './Job';
+import type { IJobParameters } from './types/JobParameters';
 /**
  * @class
  */
 export class JobProcessingQueue {
 	private _queue: Job[];
 
-	constructor(private agenda: Agenda) {
+	constructor(private readonly agenda: Agenda) {
 		this._queue = [];
 	}
 
@@ -42,12 +42,10 @@ export class JobProcessingQueue {
 		let removeJobIndex = this._queue.indexOf(job);
 		if (removeJobIndex === -1) {
 			// lookup by id
-			removeJobIndex = this._queue.findIndex(
-				j => j.attrs._id?.toString() === job.attrs._id?.toString()
-			);
+			removeJobIndex = this._queue.findIndex(j => j.attrs.id === job.attrs.id);
 		}
 		if (removeJobIndex === -1) {
-			throw new Error(`cannot find job ${job.attrs._id} in processing queue?`);
+			throw new Error(`cannot find job ${job.attrs.id} in processing queue?`);
 		}
 
 		this._queue.splice(removeJobIndex, 1);
@@ -101,7 +99,7 @@ export class JobProcessingQueue {
 				  }
 				| undefined;
 		},
-		handledJobs: IJobParameters['_id'][]
+		handledJobs: IJobParameters['id'][]
 	): (JobWithId & { attrs: IJobParameters & { nextRunAt?: Date | null } }) | undefined {
 		const next = (Object.keys(this._queue) as unknown as number[]).reverse().find(i => {
 			const def = this.agenda.definitions[this._queue[i].attrs.name];
@@ -113,7 +111,7 @@ export class JobProcessingQueue {
 			// and if concurrency limit is not reached yet (actual running jobs is lower than max concurrency)
 			if (
 				def &&
-				!handledJobs.includes(this._queue[i].attrs._id) &&
+				!handledJobs.includes(this._queue[i].attrs.id) &&
 				(!status || !def.concurrency || status.running < def.concurrency)
 			) {
 				return true;

@@ -1,39 +1,50 @@
-import { EventEmitter } from 'events';
-import * as debug from 'debug';
-
-import type { Db, Filter, MongoClientOptions, Sort } from 'mongodb';
-import { SortDirection } from 'mongodb';
-import { ForkOptions } from 'child_process';
-import type { IJobDefinition } from './types/JobDefinition';
-import type { IAgendaConfig } from './types/AgendaConfig';
-import type { IDatabaseOptions, IDbConfig, IMongoOptions } from './types/DbOptions';
-import type { IAgendaStatus } from './types/AgendaStatus';
-import type { IJobParameters } from './types/JobParameters';
+import debug from 'debug';
+import { ForkOptions } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { Job, JobWithId } from './Job';
 import { JobDbRepository } from './JobDbRepository';
-import { JobPriority, parsePriority } from './utils/priority';
 import { JobProcessor } from './JobProcessor';
+import type { IAgendaConfig } from './types/AgendaConfig';
+import { AgendaDBAdapter, FilterQuery } from './types/AgendaDBAdapter';
+import type { IAgendaStatus } from './types/AgendaStatus';
+import type { IJobDefinition } from './types/JobDefinition';
+import type { IJobParameters } from './types/JobParameters';
+import { JobPriority, parsePriority } from './utils/priority';
 import { calculateProcessEvery } from './utils/processEvery';
 import { getCallerFilePath } from './utils/stack';
 
 const log = debug('agenda');
 
-const DefaultOptions = {
+export type AgendaOptions = {
+	name: string;
+	defaultConcurrency: number;
+	processEvery: string | number;
+	maxConcurrency: number;
+	defaultLockLimit: number;
+	lockLimit: number;
+	defaultLockLifetime: number;
+	forkHelper: { path: string; options?: ForkOptions };
+	forkedWorker: boolean;
+	adapter?: AgendaDBAdapter;
+};
+
+const DefaultOptions: AgendaOptions = {
+	name: '',
 	processEvery: 5000,
 	defaultConcurrency: 5,
 	maxConcurrency: 20,
 	defaultLockLimit: 0,
 	lockLimit: 0,
 	defaultLockLifetime: 10 * 60 * 1000,
-	sort: { nextRunAt: 1, priority: -1 } as const,
-	forkHelper: { path: 'dist/childWorker.js' }
-};
+	forkHelper: { path: 'dist/childWorker.js' },
+	forkedWorker: false
+} as const;
 
 /**
  * @class
  */
 export class Agenda extends EventEmitter {
-	readonly attrs: IAgendaConfig & IDbConfig;
+	readonly attrs: IAgendaConfig;
 
 	public readonly forkedWorker?: boolean;
 
@@ -96,34 +107,23 @@ export class Agenda extends EventEmitter {
 	 * @param {Object} config - Agenda Config
 	 * @param {Function} cb - Callback after Agenda has started and connected to mongo
 	 */
-	constructor(
-		config: {
-			name?: string;
-			defaultConcurrency?: number;
-			processEvery?: string | number;
-			maxConcurrency?: number;
-			defaultLockLimit?: number;
-			lockLimit?: number;
-			defaultLockLifetime?: number;
-			// eslint-disable-next-line @typescript-eslint/ban-types
-		} & (IDatabaseOptions | IMongoOptions | {}) &
-			IDbConfig & {
-				forkHelper?: { path: string; options?: ForkOptions };
-				forkedWorker?: boolean;
-			} = DefaultOptions,
-		cb?: (error?: Error) => void
-	) {
+	constructor(config: Partial<AgendaOptions>, cb?: (error?: Error) => void) {
 		super();
 
+		const options = { ...DefaultOptions, ...config };
+
+		if (!options.adapter) {
+			throw new Error('DB adapter is required');
+		}
+
 		this.attrs = {
-			name: config.name || '',
-			processEvery: calculateProcessEvery(config.processEvery) || DefaultOptions.processEvery,
-			defaultConcurrency: config.defaultConcurrency || DefaultOptions.defaultConcurrency,
-			maxConcurrency: config.maxConcurrency || DefaultOptions.maxConcurrency,
-			defaultLockLimit: config.defaultLockLimit || DefaultOptions.defaultLockLimit,
-			lockLimit: config.lockLimit || DefaultOptions.lockLimit,
-			defaultLockLifetime: config.defaultLockLifetime || DefaultOptions.defaultLockLifetime, // 10 minute default lockLifetime
-			sort: config.sort || DefaultOptions.sort
+			name: options.name || '',
+			processEvery: calculateProcessEvery(options.processEvery),
+			defaultConcurrency: options.defaultConcurrency,
+			maxConcurrency: options.maxConcurrency,
+			defaultLockLimit: options.defaultLockLimit || DefaultOptions.defaultLockLimit,
+			lockLimit: options.lockLimit,
+			defaultLockLifetime: options.defaultLockLifetime // 10 minute default lockLifetime
 		};
 
 		this.forkedWorker = config.forkedWorker;
@@ -133,8 +133,8 @@ export class Agenda extends EventEmitter {
 			this.once('ready', resolve);
 		});
 
-		if (this.hasDatabaseConfig(config)) {
-			this.db = new JobDbRepository(this, config);
+		if (options.adapter) {
+			this.db = new JobDbRepository(this, options.adapter);
 			this.db.connect();
 		}
 
@@ -146,49 +146,17 @@ export class Agenda extends EventEmitter {
 	/**
 	 * Connect to the spec'd MongoDB server and database.
 	 */
-	async database(
-		address: string,
-		collection?: string,
-		options?: MongoClientOptions
-	): Promise<Agenda> {
-		this.db = new JobDbRepository(this, { db: { address, collection, options } });
+	async setAdapter(adapter: AgendaDBAdapter): Promise<Agenda> {
+		this.db = new JobDbRepository(this, adapter);
 		await this.db.connect();
 		return this;
-	}
-
-	/**
-	 * Use existing mongo connectino to pass into agenda
-	 * @param mongo
-	 * @param collection
-	 */
-	async mongo(mongo: Db, collection?: string): Promise<Agenda> {
-		this.db = new JobDbRepository(this, { mongo, db: { collection } });
-		await this.db.connect();
-		return this;
-	}
-
-	/**
-	 * Set the sort query for finding next job
-	 * Default is { nextRunAt: 1, priority: -1 }
-	 * @param query
-	 */
-	sort(query: { [key: string]: SortDirection }): Agenda {
-		log('Agenda.sort([Object])');
-		this.attrs.sort = query;
-		return this;
-	}
-
-	private hasDatabaseConfig(
-		config: unknown
-	): config is (IDatabaseOptions | IMongoOptions) & IDbConfig {
-		return !!((config as IDatabaseOptions)?.db?.address || (config as IMongoOptions)?.mongo);
 	}
 
 	/**
 	 * Cancels any jobs matching the passed MongoDB query, and removes them from the database.
 	 * @param query
 	 */
-	async cancel(query: Filter<IJobParameters>): Promise<number> {
+	async cancel(query: FilterQuery<IJobParameters>): Promise<number> {
 		log('attempting to cancel all Agenda jobs', query);
 		try {
 			const amountOfRemovedJobs = await this.db.removeJobs(query);
@@ -284,8 +252,8 @@ export class Agenda extends EventEmitter {
 	 * @param skip
 	 */
 	async jobs(
-		query: Filter<IJobParameters> = {},
-		sort: Sort = {},
+		query: Partial<IJobParameters> = {},
+		sort?: `${string}:${1 | -1}`,
 		limit = 0,
 		skip = 0
 	): Promise<Job[]> {
@@ -301,7 +269,7 @@ export class Agenda extends EventEmitter {
 	async purge(): Promise<number> {
 		const definedNames = Object.keys(this.definitions);
 		log('Agenda.purge(%o)', definedNames);
-		return this.cancel({ name: { $not: { $in: definedNames } } });
+		return this.db.removeJobsWithNotNames(definedNames);
 	}
 
 	/**
@@ -320,6 +288,7 @@ export class Agenda extends EventEmitter {
 			priority?: JobPriority;
 		}
 	): void;
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	define<DATA = any>(
 		name: string,
@@ -555,7 +524,7 @@ export class Agenda extends EventEmitter {
 		const lockedJobs = this.jobProcessor.stop();
 
 		log('Agenda._unlockJobs()');
-		const jobIds = lockedJobs?.map(job => job.attrs._id) || [];
+		const jobIds = lockedJobs?.map(job => job.attrs.id) || [];
 
 		if (jobIds.length > 0) {
 			log('about to unlock jobs with ids: %O', jobIds);
@@ -573,7 +542,5 @@ export * from './types/AgendaConfig';
 export * from './types/JobDefinition';
 
 export * from './types/JobParameters';
-
-export * from './types/DbOptions';
 
 export * from './Job';

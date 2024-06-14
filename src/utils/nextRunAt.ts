@@ -1,11 +1,11 @@
 /* eslint-disable import/first */
-import { DateTime } from 'luxon';
-import * as date from 'date.js';
-import * as debug from 'debug';
 import { parseExpression } from 'cron-parser';
-import humanInterval = require('human-interval');
-import { isValidDate } from './isValidDate';
+import date from 'date.js';
+import debug from 'debug';
+import { DateTime } from 'luxon';
 import type { IJobParameters } from '../types/JobParameters';
+import { isValidDate } from './isValidDate';
+import humanInterval = require('human-interval');
 
 const log = debug('agenda:nextRunAt');
 
@@ -22,7 +22,7 @@ export function isValidHumanInterval(value: unknown): value is string {
  */
 export const computeFromInterval = (attrs: IJobParameters<any>): Date => {
 	const previousNextRunAt = attrs.nextRunAt || new Date();
-	log('[%s:%s] computing next run via interval [%s]', attrs.name, attrs._id, attrs.repeatInterval);
+	log('[%s:%s] computing next run via interval [%s]', attrs.name, attrs.id, attrs.repeatInterval);
 
 	const lastRun = dateForTimezone(attrs.lastRunAt || new Date(), attrs.repeatTimezone);
 
@@ -69,7 +69,7 @@ export const computeFromInterval = (attrs: IJobParameters<any>): Date => {
 		log(
 			'[%s:%s] failed to calculate nextRunAt due to invalid repeat interval',
 			attrs.name,
-			attrs._id
+			attrs.id
 		);
 		throw new Error(
 			`failed to calculate nextRunAt due to invalid repeat interval (${attrs.repeatInterval}): ${
@@ -93,7 +93,7 @@ export function computeFromRepeatAt(attrs: IJobParameters<any>): Date {
 	const offset = Date.now();
 
 	if (offset === date(attrs.repeatAt, offset).valueOf()) {
-		log('[%s:%s] failed to calculate repeatAt due to invalid format', attrs.name, attrs._id);
+		log('[%s:%s] failed to calculate repeatAt due to invalid format', attrs.name, attrs.id);
 		// this.attrs.nextRunAt = undefined;
 		// this.fail('failed to calculate repeatAt time due to invalid format');
 		throw new Error('failed to calculate repeatAt time due to invalid format');

@@ -1,12 +1,12 @@
-export type JobPriority = number | keyof typeof priorityMap;
-
 const priorityMap = {
 	lowest: -20,
 	low: -10,
 	normal: 0,
 	high: 10,
 	highest: 20
-};
+} as const;
+
+export type JobPriority = number | keyof typeof priorityMap;
 
 /**
  * Internal method to turn priority into a number

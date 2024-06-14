@@ -1,6 +1,6 @@
 {
   "name": "agenda",
-  "version": "5.0.0",
+  "version": "6.0.0-rc",
   "description": "Light weight job scheduler for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
     "release": "npm run build && standard-version",
@@ -51,34 +51,34 @@
     "url": "https://github.com/hokify/agenda/issues"
   },
   "dependencies": {
-    "cron-parser": "^4.5.0",
-    "date.js": "~0.3.3",
-    "debug": "~4.3.4",
+    "@formkit/tempo": "^0.1.1",
+    "cron-parser": "^4.9.0",
+    "date.js": "^0.3.3",
+    "debug": "~4.3.5",
     "human-interval": "~2.0.1",
-    "luxon": "^3.2.1",
-    "mongodb": "^4.8.1"
+    "mongodb": "^6.7.0"
   },
   "devDependencies": {
-    "eslint": "^8.21.0",
-    "prettier": "^2.7.1",
-    "@hokify/eslint-config": "^2.3.2",
+    "@hokify/eslint-config": "^2.10.3",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
-    "@types/chai": "^4.3.1",
-    "@types/debug": "^4.1.7",
-    "@types/human-interval": "^1.0.0",
-    "@types/luxon": "^3.0.0",
-    "@types/mocha": "^9.1.1",
-    "@types/node": "^18.6.3",
-    "@types/sinon": "^10.0.13",
-    "chai": "^4.3.6",
-    "delay": "5.0.0",
-    "mocha": "10.0.0",
-    "mongodb-memory-server": "^8.8.0",
-    "nyc": "^15.1.0",
-    "sinon": "14.0.0",
+    "@types/chai": "^4.3.16",
+    "@types/debug": "^4.1.12",
+    "@types/human-interval": "^1.0.2",
+    "@types/luxon": "^3.4.2",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.14.2",
+    "@types/sinon": "^17.0.3",
+    "chai": "^5.1.1",
+    "delay": "6.0.0",
+    "eslint": "^9.4.0",
+    "mocha": "10.4.0",
+    "mongodb-memory-server": "^9.3.0",
+    "nyc": "^17.0.0",
+    "prettier": "^3.3.2",
+    "sinon": "18.0.0",
     "standard-version": "^9.5.0",
-    "ts-node": "^10.9.1",
-    "typedoc": "^0.23.10",
-    "typescript": "^4.7.4"
+    "ts-node": "^10.9.2",
+    "typedoc": "^0.25.13",
+    "typescript": "^5.4.5"
   }
 }

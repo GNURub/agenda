@@ -1,7 +1,5 @@
-import { Filter, ObjectId } from 'mongodb';
-
 export interface IJobParameters<DATA = unknown | void> {
-	_id?: ObjectId;
+	id?: string;
 
 	name: string;
 	priority: number;
@@ -26,7 +24,7 @@ export interface IJobParameters<DATA = unknown | void> {
 	progress?: number;
 
 	// unique query object
-	unique?: Filter<Omit<IJobParameters<DATA>, 'unique'>>;
+	unique?: Partial<Omit<IJobParameters<DATA>, 'unique'>>;
 	uniqueOpts?: {
 		insertOnly: boolean;
 	};
