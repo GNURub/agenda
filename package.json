@@ -54,6 +54,10 @@
     ]
   },
   "devDependencies": {
+    "@agenda/agenda": "*",
+    "@agenda/filesystem-adapter": "*",
+    "@agenda/mongodb-adapter": "*",
+    "@agenda/memory-adapter": "*",
     "@hokify/eslint-config": "^2.10.3",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.16",
@@ -64,17 +68,18 @@
     "@types/node": "^20.14.2",
     "@types/sinon": "^17.0.3",
     "chai": "^5.1.1",
-    "delay": "6.0.0",
+    "delay": "5.0.0",
     "eslint": "^9.4.0",
     "mocha": "10.4.0",
+    "mongodb": "^6.7.0",
     "mongodb-memory-server": "^9.3.0",
+    "nx": "19.3.0",
     "nyc": "^17.0.0",
     "prettier": "^3.3.2",
     "sinon": "18.0.0",
     "standard-version": "^9.5.0",
     "ts-node": "^10.9.2",
     "typedoc": "^0.25.13",
-    "typescript": "^5.4.5",
-    "nx": "19.3.0"
+    "typescript": "^5.4.5"
   }
 }

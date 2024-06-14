@@ -2,18 +2,17 @@
 import { fail } from 'assert';
 import { expect } from 'chai';
 
-import { Db } from 'mongodb';
-import { Agenda } from '../src';
-import { mockMongo } from './helpers/mock-mongodb';
+import { Agenda, type AgendaDBAdapter } from '@agenda/agenda';
+import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
 
 // Create agenda instances
 let agenda: Agenda;
 // mongo db connection db instance
-let mongoDb: Db;
+let adapter: AgendaDBAdapter;
 
-const clearJobs = async () => {
-	if (mongoDb) {
-		await mongoDb.collection('agendaJobs').deleteMany({});
+const clearJobs = async (): Promise<void> => {
+	if (adapter) {
+		await adapter.removeJobs({});
 	}
 };
 
@@ -21,16 +20,14 @@ describe('JobProcessor', () => {
 	// this.timeout(1000000);
 
 	beforeEach(async () => {
-		if (!mongoDb) {
-			const mockedMongo = await mockMongo();
-			// mongoCfg = mockedMongo.uri;
-			mongoDb = mockedMongo.mongo.db();
+		if (!adapter) {
+			adapter = new AgendaMemoryAdapter();
 		}
 
 		return new Promise(resolve => {
 			agenda = new Agenda(
 				{
-					mongo: mongoDb,
+					adapter,
 					maxConcurrency: 4,
 					defaultConcurrency: 1,
 					lockLimit: 15,

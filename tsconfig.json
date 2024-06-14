@@ -3,7 +3,7 @@
     "module": "NodeNext",
     "target": "ESNext",
     "sourceMap": false,
-    "removeComments": true,
+    "removeComments": false,
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -14,5 +14,16 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-  }
+    "esModuleInterop": true,
+    "isolatedModules": false,
+    "declaration": true,
+    "emitDecoratorMetadata": true,
+    "composite": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+  },
+  "exclude": [
+    "node_modules",
+    "**/__tests__"
+  ]
 }

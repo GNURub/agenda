@@ -18,7 +18,7 @@ export interface IJobParameters<DATA = unknown | void> {
 	repeatTimezone?: string;
 	lastRunAt?: Date;
 	repeatInterval?: string | number;
-	data: DATA;
+	data: DATA | Partial<DATA>;
 	repeatAt?: string;
 	disabled?: boolean;
 	progress?: number;

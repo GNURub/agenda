@@ -1,6 +1,6 @@
-import { Agenda } from '../../src';
-import { AgendaMongoAdapter } from '../../src/adapters/mongodb.adapter';
-import addTests from './add-tests';
+import { Agenda } from '@agenda/agenda';
+import { AgendaMongoAdapter } from '@agenda/mongodb-adapter';
+import addTests from './add-tests.js';
 
 const connStr = process.argv[2];
 const tests = process.argv.slice(3);
@@ -17,8 +17,8 @@ const agenda = new Agenda(
 		processEvery: 100
 	},
 	async () => {
-		tests.forEach(test => {
-			addTests[test](agenda);
+		tests.forEach((test: any) => {
+			addTests[test as keyof typeof addTests](agenda);
 		});
 
 		await agenda.start();

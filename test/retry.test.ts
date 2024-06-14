@@ -1,35 +1,31 @@
-/* eslint-disable no-console */
-import { Db } from 'mongodb';
-import * as delay from 'delay';
-import { mockMongo } from './helpers/mock-mongodb';
-
-import { Agenda } from '../src';
+import { Agenda, Job, type AgendaDBAdapter } from '@agenda/agenda';
+import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
+import delay from 'delay';
 
 // agenda instances
 let agenda: Agenda;
 // mongo db connection db instance
-let mongoDb: Db;
+let adapter: AgendaDBAdapter;
 
 const clearJobs = async (): Promise<void> => {
-	if (mongoDb) {
-		await mongoDb.collection('agendaJobs').deleteMany({});
+	if (adapter) {
+		await adapter.removeJobs({});
 	}
 };
 
 const jobType = 'do work';
-const jobProcessor = () => { };
+const jobProcessor = () => {};
 
 describe('Retry', () => {
 	beforeEach(async () => {
-		if (!mongoDb) {
-			const mockedMongo = await mockMongo();
-			mongoDb = mockedMongo.mongo.db();
+		if (!adapter) {
+			adapter = new AgendaMemoryAdapter();
 		}
 
 		return new Promise(resolve => {
 			agenda = new Agenda(
 				{
-					mongo: mongoDb
+					adapter
 				},
 				async () => {
 					await delay(50);
@@ -48,8 +44,6 @@ describe('Retry', () => {
 		await delay(50);
 		await agenda.stop();
 		await clearJobs();
-		// await mongoClient.disconnect();
-		// await jobs._db.close();
 	});
 
 	it('should retry a job', async () => {
@@ -66,7 +60,7 @@ describe('Retry', () => {
 			return undefined;
 		});
 
-		agenda.on('fail:a job', (err, job) => {
+		agenda.on('fail:a job', (err: any, job: Job) => {
 			if (err) {
 				// Do nothing as this is expected to fail.
 			}
@@ -75,8 +69,8 @@ describe('Retry', () => {
 		});
 
 		const successPromise = new Promise(resolve => {
-      agenda.on('success:a job', resolve)
-    });
+			agenda.on('success:a job', resolve);
+		});
 
 		await agenda.now('a job');
 

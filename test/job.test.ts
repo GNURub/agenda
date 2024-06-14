@@ -1,17 +1,15 @@
 /* eslint-disable no-console */
-import * as path from 'path';
-import * as cp from 'child_process';
 import { expect } from 'chai';
-import * as assert from 'node:assert';
+import * as cp from 'child_process';
 import { DateTime } from 'luxon';
-import { Db } from 'mongodb';
+import * as assert from 'node:assert';
+import * as path from 'path';
 
-import * as delay from 'delay';
-import * as sinon from 'sinon';
+import { Agenda, Job, type AgendaDBAdapter } from '@agenda/agenda';
+import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
 import { fail } from 'assert';
-import { Job } from '../src/Job';
-import { Agenda } from '../src';
-import { mockMongo } from './helpers/mock-mongodb';
+import delay from 'delay';
+import sinon from 'sinon';
 import someJobDefinition from './fixtures/someJobDefinition';
 
 // Create agenda instances
@@ -19,11 +17,11 @@ let agenda: Agenda;
 // connection string to mongodb
 let mongoCfg: string;
 // mongo db connection db instance
-let mongoDb: Db;
+let adapter: AgendaDBAdapter;
 
-const clearJobs = async () => {
-	if (mongoDb) {
-		await mongoDb.collection('agendaJobs').deleteMany({});
+const clearJobs = async (): Promise<void> => {
+	if (adapter) {
+		await adapter.removeJobs({});
 	}
 };
 
@@ -34,16 +32,14 @@ const jobProcessor = () => {};
 
 describe('Job', () => {
 	beforeEach(async () => {
-		if (!mongoDb) {
-			const mockedMongo = await mockMongo();
-			mongoCfg = mockedMongo.uri;
-			mongoDb = mockedMongo.mongo.db();
+		if (!adapter) {
+			adapter = new AgendaMemoryAdapter();
 		}
 
 		return new Promise(resolve => {
 			agenda = new Agenda(
 				{
-					mongo: mongoDb
+					adapter
 				},
 				async () => {
 					await delay(50);
@@ -141,7 +137,7 @@ describe('Job', () => {
 	});
 
 	describe('schedule', () => {
-		let job;
+		let job: Job;
 		beforeEach(() => {
 			job = new Job(agenda, { name: 'demo', type: 'normal' });
 		});
@@ -153,21 +149,21 @@ describe('Job', () => {
 			const when = new Date(Date.now() + 1000 * 60 * 3);
 			job.schedule(when);
 			expect(job.attrs.nextRunAt).to.be.an.instanceof(Date);
-			expect(job.attrs.nextRunAt.getTime()).to.eql(when.getTime());
+			expect(job.attrs.nextRunAt!.getTime()).to.eql(when.getTime());
 		});
 		it('returns the job', () => {
 			expect(job.schedule('tomorrow at noon')).to.equal(job);
 		});
 		it('understands ISODates on the 30th', () => {
 			// https://github.com/agenda/agenda/issues/807
-			expect(job.schedule('2019-04-30T22:31:00.00Z').attrs.nextRunAt.getTime()).to.equal(
+			expect(job.schedule('2019-04-30T22:31:00.00Z').attrs.nextRunAt!.getTime()).to.equal(
 				1556663460000
 			);
 		});
 	});
 
 	describe('priority', () => {
-		let job;
+		let job: Job;
 		beforeEach(() => {
 			job = new Job(agenda, { name: 'demo', type: 'normal' });
 		});
@@ -364,22 +360,17 @@ describe('Job', () => {
 				type: 'normal'
 			});
 			await job.save();
-			const resultSaved = await mongoDb
-				.collection('agendaJobs')
-				.find({
-					_id: job.attrs._id
-				})
-				.toArray();
+
+			const resultSaved = await adapter.getJobs({
+				id: job.attrs.id!
+			});
 
 			expect(resultSaved).to.have.length(1);
 			await job.remove();
 
-			const resultDeleted = await mongoDb
-				.collection('agendaJobs')
-				.find({
-					_id: job.attrs._id
-				})
-				.toArray();
+			const resultDeleted = await adapter.getJobs({
+				id: job.attrs.id!
+			});
 
 			expect(resultDeleted).to.have.length(0);
 		});
@@ -944,7 +935,7 @@ describe('Job', () => {
 				);
 			});
 
-			let errorHasBeenThrown;
+			let errorHasBeenThrown: any;
 			agenda.on('error', err => {
 				errorHasBeenThrown = err;
 			});
@@ -1282,12 +1273,6 @@ describe('Job', () => {
 				throw err;
 			}
 		});
-
-		it('should support custom sort option', () => {
-			const sort = { foo: 1 } as const;
-			const agendaSort = new Agenda({ sort });
-			expect(agendaSort.attrs.sort).to.eql(sort);
-		});
 	});
 
 	describe('every running', () => {
@@ -1347,11 +1332,11 @@ describe('Job', () => {
 			it('Should not rerun completed jobs after restart', done => {
 				let i = 0;
 
-				const serviceError = function (e) {
+				const serviceError = function (e: any) {
 					done(e);
 				};
 
-				const receiveMessage = function (msg) {
+				const receiveMessage = function (msg: any) {
 					if (msg === 'ran') {
 						expect(i).to.equal(0);
 						i += 1;
@@ -1388,11 +1373,11 @@ describe('Job', () => {
 				let ran2 = false;
 				let doneCalled = false;
 
-				const serviceError = function (e) {
+				const serviceError = function (e: any) {
 					done(e);
 				};
 
-				const receiveMessage = function (msg) {
+				const receiveMessage = function (msg: any) {
 					if (msg === 'test1-ran') {
 						ran1 = true;
 						if (ran1 && ran2 && !doneCalled) {
@@ -1442,11 +1427,11 @@ describe('Job', () => {
 			it('Should not run jobs scheduled in the future', done => {
 				let i = 0;
 
-				const serviceError = function (e) {
+				const serviceError = function (e: any) {
 					done(e);
 				};
 
-				const receiveMessage = function (msg) {
+				const receiveMessage = function (msg: any) {
 					if (msg === 'notRan') {
 						if (i < 5) {
 							done();
@@ -1475,11 +1460,11 @@ describe('Job', () => {
 			});
 
 			it('Should run past due jobs when process starts', done => {
-				const serviceError = function (e) {
+				const serviceError = function (e: any) {
 					done(e);
 				};
 
-				const receiveMessage = function (msg) {
+				const receiveMessage = function (msg: any) {
 					if (msg === 'ran') {
 						done();
 					} else {
@@ -1510,11 +1495,11 @@ describe('Job', () => {
 				let ran2 = false;
 				let doneCalled = false;
 
-				const serviceError = err => {
+				const serviceError = (err: any) => {
 					done(err);
 				};
 
-				const receiveMessage = msg => {
+				const receiveMessage = (msg: any) => {
 					if (msg === 'test1-ran') {
 						ran1 = true;
 						if (ran1 && ran2 && !doneCalled) {
@@ -1541,11 +1526,11 @@ describe('Job', () => {
 
 		describe('now()', () => {
 			it('Should immediately run the job', done => {
-				const serviceError = function (e) {
+				const serviceError = function (e: any) {
 					done(e);
 				};
 
-				const receiveMessage = function (msg) {
+				const receiveMessage = function (msg: any) {
 					if (msg === 'ran') {
 						return done();
 					}
@@ -1563,10 +1548,10 @@ describe('Job', () => {
 
 		describe('General Integration', () => {
 			it('Should not run a job that has already been run', async () => {
-				const runCount = {};
+				const runCount: any = {};
 
 				agenda.define('test-job', (job, cb) => {
-					const id = job.attrs._id!.toString();
+					const id = job.attrs.id!.toString();
 
 					runCount[id] = runCount[id] ? runCount[id] + 1 : 1;
 					cb();
@@ -1634,7 +1619,7 @@ describe('Job', () => {
 
 		await job.remove();
 
-		let error;
+		let error: Error | undefined;
 		const completed = new Promise<void>(resolve => {
 			agenda.on('error', err => {
 				error = err;
@@ -1659,7 +1644,7 @@ describe('Job', () => {
 	describe('job fork mode', () => {
 		it('runs a job in fork mode', async () => {
 			const agendaFork = new Agenda({
-				mongo: mongoDb,
+				adapter,
 				forkHelper: {
 					path: './test/helpers/forkHelper.ts',
 					options: {
@@ -1676,7 +1661,7 @@ describe('Job', () => {
 			job.schedule('now');
 			await job.save();
 
-			const jobData = await agenda.db.getJobById(job.attrs._id as any);
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
 
 			if (!jobData) {
 				throw new Error('job not found');
@@ -1694,7 +1679,7 @@ describe('Job', () => {
 				await delay(50);
 			} while (await job.isRunning());
 
-			const jobDataFinished = await agenda.db.getJobById(job.attrs._id as any);
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
 			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
 			expect(jobDataFinished?.failReason).to.be.eq(null);
 			expect(jobDataFinished?.failCount).to.be.eq(null);
@@ -1702,7 +1687,7 @@ describe('Job', () => {
 
 		it('runs a job in fork mode, but let it fail', async () => {
 			const agendaFork = new Agenda({
-				mongo: mongoDb,
+				adapter,
 				forkHelper: {
 					path: './test/helpers/forkHelper.ts',
 					options: {
@@ -1719,7 +1704,7 @@ describe('Job', () => {
 			job.schedule('now');
 			await job.save();
 
-			const jobData = await agenda.db.getJobById(job.attrs._id as any);
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
 
 			if (!jobData) {
 				throw new Error('job not found');
@@ -1737,7 +1722,7 @@ describe('Job', () => {
 				await delay(50);
 			} while (await job.isRunning());
 
-			const jobDataFinished = await agenda.db.getJobById(job.attrs._id as any);
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
 			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
 			expect(jobDataFinished?.failReason).to.not.be.eq(null);
 			expect(jobDataFinished?.failCount).to.be.eq(1);
@@ -1745,7 +1730,7 @@ describe('Job', () => {
 
 		it('runs a job in fork mode, but let it die', async () => {
 			const agendaFork = new Agenda({
-				mongo: mongoDb,
+				adapter,
 				forkHelper: {
 					path: './test/helpers/forkHelper.ts',
 					options: {
@@ -1762,7 +1747,7 @@ describe('Job', () => {
 			job.schedule('now');
 			await job.save();
 
-			const jobData = await agenda.db.getJobById(job.attrs._id as any);
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
 
 			if (!jobData) {
 				throw new Error('job not found');
@@ -1780,7 +1765,7 @@ describe('Job', () => {
 				await delay(50);
 			} while (await job.isRunning());
 
-			const jobDataFinished = await agenda.db.getJobById(job.attrs._id as any);
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
 			expect(jobDataFinished?.lastFinishedAt).to.not.be.eq(undefined);
 			expect(jobDataFinished?.failReason).to.not.be.eq(null);
 			expect(jobDataFinished?.failCount).to.be.eq(1);

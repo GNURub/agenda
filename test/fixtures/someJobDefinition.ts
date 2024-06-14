@@ -1,4 +1,4 @@
-import { Agenda } from '../../src';
+import { type Agenda } from '@agenda/agenda';
 
 export default (agenda: Agenda, _definitionOnly = false) => {
 	agenda.define('some job', async job => {

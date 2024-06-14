@@ -1,4 +1,5 @@
-import { Agenda } from '../../src';
+import { Agenda } from '@agenda/agenda';
+import { AgendaMongoAdapter } from '@agenda/mongodb-adapter';
 
 process.on('message', message => {
 	if (message === 'cancel') {
@@ -19,8 +20,9 @@ process.on('message', message => {
 
 	// initialize Agenda in "forkedWorker" mode
 	const agenda = new Agenda({ name: `subworker-${name}`, forkedWorker: true });
+	const mongoAdapter = new AgendaMongoAdapter({ db: { address: process.env.DB_CONNECTION! } });
 	// connect agenda (but do not start it)
-	await agenda.database(process.env.DB_CONNECTION!);
+	await agenda.setAdapter(mongoAdapter);
 
 	if (!name || !jobId) {
 		throw new Error(`invalid parameters: ${JSON.stringify(process.argv)}`);
