@@ -536,11 +536,3 @@ export class Agenda extends EventEmitter {
 		this.jobProcessor = undefined;
 	}
 }
-
-export * from './types/AgendaConfig';
-
-export * from './types/JobDefinition';
-
-export * from './types/JobParameters';
-
-export * from './Job';

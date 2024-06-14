@@ -1,5 +1,5 @@
 // eslint-disable-next-line prettier/prettier
-import type { Agenda } from './index';
+import type { Agenda } from './Agenda';
 import type { Job, JobWithId } from './Job';
 import type { IJobParameters } from './types/JobParameters';
 /**

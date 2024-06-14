@@ -1,3 +1,4 @@
+import { AgendaDBAdapter, FilterQuery, IJobParameters, Job, JobWithId } from '@agenda/agenda';
 import debug from 'debug';
 import type { SortDirection } from 'mongodb';
 import {
@@ -9,9 +10,6 @@ import {
 	MongoClientOptions,
 	UpdateFilter
 } from 'mongodb';
-import { Job, JobWithId } from '..';
-import { AgendaDBAdapter, FilterQuery } from '../types/AgendaDBAdapter';
-import { IJobParameters } from '../types/JobParameters';
 
 const log = debug('agenda:db:mongo');
 

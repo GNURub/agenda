@@ -1,4 +1,4 @@
-import { Job, JobWithId } from '..';
+import { Job, JobWithId } from '../Agenda';
 import { IJobParameters } from './JobParameters';
 
 export type FilterQuery<T, A = any> = Partial<Record<keyof T, A>>;

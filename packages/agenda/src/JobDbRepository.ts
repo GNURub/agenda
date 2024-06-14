@@ -1,5 +1,5 @@
 import debug from 'debug';
-import type { Agenda } from './index';
+import type { Agenda } from './Agenda';
 import type { Job, JobWithId } from './Job';
 import { AgendaDBAdapter, FilterQuery } from './types/AgendaDBAdapter';
 import type { IJobParameters } from './types/JobParameters';

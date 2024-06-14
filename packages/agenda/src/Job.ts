@@ -1,7 +1,7 @@
 import { ChildProcess, fork } from 'child_process';
 import * as date from 'date.js';
 import debug from 'debug';
-import type { Agenda } from './index';
+import type { Agenda } from './Agenda';
 import type { DefinitionProcessor } from './types/JobDefinition';
 import { datefields, IJobParameters, TJobDatefield } from './types/JobParameters';
 import { computeFromInterval, computeFromRepeatAt } from './utils/nextRunAt';

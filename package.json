@@ -14,12 +14,10 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "release": "npm run build && standard-version",
-    "prepublishOnly": "npm run build",
-    "build": "tsc",
-    "test": "npm run mocha",
-    "lint": "eslint src",
-    "lint-fix": "eslint src --fix",
+    "lint": "nx run-many -t lint",
+    "lint:fix": "nx run-many -t lint:fix",
+    "build": "nx run-many -t build",
+    "prepublish": "npm run build",
     "mocha": "mocha --reporter spec -b",
     "mocha-coverage": "nyc mocha --reporter spec -b",
     "mocha-debug": "DEBUG=agenda:**,-agenda:internal:** mocha --reporter spec -b",
@@ -50,13 +48,10 @@
   "bugs": {
     "url": "https://github.com/hokify/agenda/issues"
   },
-  "dependencies": {
-    "luxon": "^3.2.1",
-    "cron-parser": "^4.9.0",
-    "date.js": "^0.3.3",
-    "debug": "~4.3.5",
-    "human-interval": "~2.0.1",
-    "mongodb": "^6.7.0"
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ]
   },
   "devDependencies": {
     "@hokify/eslint-config": "^2.10.3",
@@ -78,8 +73,8 @@
     "sinon": "18.0.0",
     "standard-version": "^9.5.0",
     "ts-node": "^10.9.2",
-    "turbo": "^2.0.3",
     "typedoc": "^0.25.13",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "nx": "19.3.0"
   }
 }

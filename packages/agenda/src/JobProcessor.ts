@@ -1,6 +1,6 @@
 import debug from 'debug';
-import { version as agendaVersion } from '../package.json';
-import type { Agenda, JobWithId } from './index';
+import { version as agendaVersion } from '../../../package.json';
+import type { Agenda, JobWithId } from './Agenda';
 import { Job } from './Job';
 import { JobProcessingQueue } from './JobProcessingQueue';
 import type { IAgendaJobStatus, IAgendaStatus } from './types/AgendaStatus';

@@ -1,0 +1,45 @@
+{
+  "name": "@agenda/mongodb-adapter",
+  "version": "6.0.0-rc",
+  "description": "Light weight job scheduler for Node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "release": "npm run build && standard-version",
+    "prepublishOnly": "npm run build",
+    "build": "tsc",
+    "lint": "eslint src",
+    "lint-fix": "eslint src --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hokify/agenda"
+  },
+  "keywords": [
+    "job",
+    "jobs",
+    "cron",
+    "delayed",
+    "scheduler",
+    "runner"
+  ],
+  "author": "Simon Tretter <simon.tretter@hokify.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hokify/agenda/issues"
+  },
+  "dependencies": {
+    "@agenda/agenda": "^6.0.0-rc",
+    "debug": "~4.3.5",
+    "mongodb": "^6.7.0"
+  }
+}
