@@ -51,7 +51,7 @@
     "url": "https://github.com/hokify/agenda/issues"
   },
   "dependencies": {
-    "@formkit/tempo": "^0.1.1",
+    "luxon": "^3.2.1",
     "cron-parser": "^4.9.0",
     "date.js": "^0.3.3",
     "debug": "~4.3.5",
@@ -78,6 +78,7 @@
     "sinon": "18.0.0",
     "standard-version": "^9.5.0",
     "ts-node": "^10.9.2",
+    "turbo": "^2.0.3",
     "typedoc": "^0.25.13",
     "typescript": "^5.4.5"
   }

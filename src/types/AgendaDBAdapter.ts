@@ -1,7 +1,7 @@
 import { Job, JobWithId } from '..';
 import { IJobParameters } from './JobParameters';
 
-export type FilterQuery<T, A = any> = Record<keyof T, A>;
+export type FilterQuery<T, A = any> = Partial<Record<keyof T, A>>;
 
 export interface AgendaDBAdapter {
 	connect(): Promise<void>;

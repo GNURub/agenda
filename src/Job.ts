@@ -281,7 +281,7 @@ export class Job<DATA = unknown | void> {
 	 * Remove the job from database
 	 */
 	remove(): Promise<number> {
-		return this.agenda.cancel({ id: this.attrs.id });
+		return this.agenda.cancel({ id: this.attrs.id! });
 	}
 
 	async isDead(): Promise<boolean> {
