@@ -22,6 +22,8 @@ export class Job<DATA = unknown | void> {
 	 */
 	private canceled?: Error | true;
 
+	private isRemoved = false;
+
 	getCanceledMessage() {
 		return typeof this.canceled === 'object'
 			? this.canceled?.message || this.canceled
@@ -268,21 +270,29 @@ export class Job<DATA = unknown | void> {
 	 * Saves a job to database
 	 */
 	async save(): Promise<Job> {
+		if (this.isRemoved) {
+			return this;
+		}
+
 		if (this.agenda.forkedWorker) {
 			const warning = new Error('calling save() on a Job during a forkedWorker has no effect!');
 			console.warn(warning.message, warning.stack);
-			return this as Job;
+			return this;
 		}
+
 		// ensure db connection is ready
 		await this.agenda.ready;
-		return this.agenda.db.saveJob(this as Job);
+		return this.agenda.db.saveJob(this);
 	}
 
 	/**
 	 * Remove the job from database
 	 */
-	remove(): Promise<number> {
-		return this.agenda.cancel({ id: this.attrs.id! });
+	async remove(): Promise<number> {
+		const count = await this.agenda.cancel({ id: this.attrs.id! });
+		this.isRemoved = count > 0;
+
+		return count;
 	}
 
 	async isDead(): Promise<boolean> {

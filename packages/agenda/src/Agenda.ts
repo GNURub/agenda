@@ -359,9 +359,9 @@ export class Agenda extends EventEmitter {
 		return job;
 	}
 
-	async createIfNotExists<DATA = unknown>(name: string, data?: DATA): Promise<Job<any>> {
+	private async createIfNotExists<DATA = unknown>(name: string, data?: DATA): Promise<Job<any>> {
 		log('Agenda.createIfNotExists(%s, [Object])', name);
-		const job = await this.db.getJobs({ name }).then(([job]) => job);
+		const job = await this.db.getJobs({ name, data }).then(([job]) => job);
 
 		if (job) {
 			return new Job(this, job);
