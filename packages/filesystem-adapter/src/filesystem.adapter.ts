@@ -139,6 +139,10 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 		return count;
 	}
 
+	private findJobIndex(job: Job<any>): number {
+		return this.jobs.findIndex(j => j.id === job.attrs.id || j.name === job.attrs.name);
+	}
+
 	async unlockJob(jobId: string): Promise<void> {
 		const indexJob = this.jobs.findIndex(job => job.id === jobId && job.nextRunAt !== null);
 		if (indexJob !== -1) {
@@ -230,7 +234,7 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 		job: Job<DATA>;
 		result: IJobParameters<DATA> | null;
 	}> {
-		let indexJob = this.jobs.findIndex(j => j.id === job.attrs.id);
+		let indexJob = this.findJobIndex(job);
 
 		if (indexJob !== -1) {
 			this.jobs[indexJob] = {
@@ -242,7 +246,7 @@ export class AgendaFSAdapter implements AgendaDBAdapter {
 			job.attrs.id = crypto.randomUUID();
 			this.jobs.push({ ...job.attrs, lastModifiedBy });
 
-			indexJob = this.jobs.findIndex(j => j.id === job.attrs.id);
+			indexJob = this.findJobIndex(job);
 		}
 
 		await this.saveData();

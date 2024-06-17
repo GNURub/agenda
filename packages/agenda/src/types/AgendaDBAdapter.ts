@@ -19,7 +19,7 @@ export interface AgendaDBAdapter {
 
 	getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null>;
 
-	removeJobs(query: FilterQuery): Promise<number>;
+	removeJobs(query?: FilterQuery): Promise<number>;
 
 	getQueueSize(): Promise<number>;
 

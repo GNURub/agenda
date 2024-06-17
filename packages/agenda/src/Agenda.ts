@@ -111,10 +111,6 @@ export class Agenda extends EventEmitter {
 
 		const options = { ...DefaultOptions, ...config };
 
-		if (!options.adapter) {
-			throw new Error('DB adapter is required');
-		}
-
 		this.attrs = {
 			name: options.name || '',
 			processEvery: calculateProcessEvery(options.processEvery),
@@ -137,7 +133,7 @@ export class Agenda extends EventEmitter {
 			this.db.connect();
 		}
 
-		if (cb) {
+		if (cb && typeof cb === 'function') {
 			this.ready.then(() => cb());
 		}
 	}
@@ -267,9 +263,11 @@ export class Agenda extends EventEmitter {
 	 */
 	async purge(): Promise<number> {
 		const definedNames = Object.keys(this.definitions);
+		const allJobs = await this.db.getJobs({});
+
 		log('Agenda.purge(%o)', definedNames);
 		return this.db.removeJobs({
-			name: definedNames
+			name: allJobs.flatMap(job => (definedNames.includes(job.name) ? [] : job.name))
 		});
 	}
 
@@ -361,6 +359,17 @@ export class Agenda extends EventEmitter {
 		return job;
 	}
 
+	async createIfNotExists<DATA = unknown>(name: string, data?: DATA): Promise<Job<any>> {
+		log('Agenda.createIfNotExists(%s, [Object])', name);
+		const job = await this.db.getJobs({ name }).then(([job]) => job);
+
+		if (job) {
+			return new Job(this, job);
+		}
+
+		return this.create(name, data);
+	}
+
 	/**
 	 * Creates a scheduled job with given interval and name/names of the job to run
 	 * @param interval
@@ -409,7 +418,7 @@ export class Agenda extends EventEmitter {
 		log('Agenda.every(%s, %O, %O)', interval, names, options);
 
 		const createJob = async (name: string): Promise<Job> => {
-			const job = this.create(name, data);
+			const job = await this.createIfNotExists(name, data);
 			job.attrs.type = 'single';
 			job.repeatEvery(interval, options);
 			if (options?.forkMode) {
@@ -451,7 +460,7 @@ export class Agenda extends EventEmitter {
 		data?: unknown
 	): Promise<Job | Job[]> {
 		const createJob = async (name: string) => {
-			const job = this.create(name, data);
+			const job = await this.createIfNotExists(name, data);
 
 			await job.schedule(when).save();
 
@@ -476,7 +485,7 @@ export class Agenda extends EventEmitter {
 	async now<DATA>(name: string, data?: DATA): Promise<Job<DATA | void>> {
 		log('Agenda.now(%s, [Object])', name);
 		try {
-			const job = this.create(name, data);
+			const job = await this.createIfNotExists(name, data);
 
 			job.schedule(new Date());
 			await job.save();
@@ -517,25 +526,29 @@ export class Agenda extends EventEmitter {
 	 * Clear the interval that processes the jobs and unlocks all currently locked jobs
 	 */
 	async stop(): Promise<void> {
-		if (!this.jobProcessor) {
-			log('Agenda.stop called, but agenda has never started!');
-			return;
-		}
+		return new Promise(async resolve => {
+			if (!this.jobProcessor) {
+				log('Agenda.stop called, but agenda has never started!');
+				return resolve();
+			}
 
-		log('Agenda.stop called, clearing interval for processJobs()');
+			log('Agenda.stop called, clearing interval for processJobs()');
 
-		const lockedJobs = this.jobProcessor.stop();
+			const lockedJobs = this.jobProcessor.stop();
 
-		log('Agenda._unlockJobs()');
-		const jobIds = lockedJobs?.map(job => job.attrs.id) || [];
+			log('Agenda._unlockJobs()');
+			const jobIds = lockedJobs?.map(job => job.attrs.id) || [];
 
-		if (jobIds.length > 0) {
-			log('about to unlock jobs with ids: %O', jobIds);
-			await this.db.unlockJobs(jobIds);
-		}
+			if (jobIds.length > 0) {
+				log('about to unlock jobs with ids: %O', jobIds);
+				await this.db.unlockJobs(jobIds);
+			}
 
-		this.off('processJob', this.jobProcessor.process.bind(this.jobProcessor));
+			this.off('processJob', this.jobProcessor.process.bind(this.jobProcessor));
 
-		this.jobProcessor = undefined;
+			this.jobProcessor = undefined;
+
+			resolve();
+		});
 	}
 }

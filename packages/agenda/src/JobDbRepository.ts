@@ -28,7 +28,7 @@ export class JobDbRepository {
 		return this.adapter.getJobs(query, sort, limit, skip);
 	}
 
-	removeJobs(query: FilterQuery): Promise<number> {
+	removeJobs(query?: FilterQuery): Promise<number> {
 		return this.adapter.removeJobs(query);
 	}
 

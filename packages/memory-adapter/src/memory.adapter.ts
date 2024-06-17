@@ -1,7 +1,14 @@
-import { AgendaDBAdapter, FilterQuery, IJobParameters, Job, JobWithId } from '@agenda/agenda';
+import {
+	AgendaDBAdapter,
+	FilterQuery,
+	IJobParameters,
+	Job,
+	JobParameters,
+	JobWithId
+} from '@agenda/agenda';
 
 export class AgendaMemoryAdapter implements AgendaDBAdapter {
-	private jobs: IJobParameters[] = [];
+	private jobs: JobParameters<any>[] = [];
 
 	async connect(): Promise<void> {}
 
@@ -10,7 +17,7 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 		sort?: `${string}:${1 | -1}`,
 		limit?: number,
 		skip?: number
-	): Promise<IJobParameters<R>[]> {
+	): Promise<JobParameters<R>[]> {
 		let jobs = this.jobs.filter(job => {
 			return Object.entries(query).every(([key, value]) => {
 				if (Array.isArray(value)) {
@@ -55,25 +62,25 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 			skip = 0;
 		}
 
-		return jobs.slice(skip, skip + limit) as IJobParameters<R>[];
+		return jobs.slice(skip, skip + limit) as JobParameters<R>[];
 	}
 
 	async getJobById<R = unknown>(id: string): Promise<IJobParameters<R> | null> {
-		return (this.jobs.find(job => job.id === id) as IJobParameters<R>) || null;
+		return (this.jobs.find(job => job.id === id) as JobParameters<R>) || null;
 	}
 
-	async removeJobs(query: FilterQuery): Promise<number> {
+	async removeJobs(query?: FilterQuery): Promise<number> {
 		const initialCount = this.jobs.length;
-		this.jobs = this.jobs.filter(
-			job =>
-				!Object.entries(query).every(([key, value]) => {
-					if (Array.isArray(value)) {
-						return !value.includes(job[key as keyof IJobParameters]);
-					}
 
-					return job[key as keyof IJobParameters] !== value;
-				})
-		);
+		if (!query || !Object.keys(query).length) {
+			this.jobs = [];
+			return initialCount;
+		}
+
+		const jobs = await this.getJobs(query).then(jobs => jobs.map(job => job.id!));
+
+		this.jobs = this.jobs.filter(job => !jobs.includes(job.id!));
+
 		return initialCount - this.jobs.length;
 	}
 
@@ -97,21 +104,24 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 	}
 
 	async lockJob(job: JobWithId): Promise<IJobParameters | undefined> {
-		const jobToLock = this.jobs.find(j => j.id === job.attrs.id && !j.lockedAt);
-		if (jobToLock) {
-			jobToLock.lockedAt = new Date();
-			return jobToLock;
+		const existingJobIndex = this.jobs.findIndex(
+			j => j.id === job.attrs.id || j.name === job.attrs.name
+		);
+
+		if (existingJobIndex !== -1) {
+			this.jobs[existingJobIndex].lockedAt = new Date();
+			return this.jobs[existingJobIndex];
 		}
 		return undefined;
 	}
 
-	async getNextJobToRun(
+	async getNextJobToRun<T = any>(
 		jobName: string,
 		nextScanAt: Date,
 		lockDeadline: Date,
 		now: Date = new Date()
-	): Promise<IJobParameters | undefined> {
-		const jobToRun = this.jobs.find(
+	): Promise<JobParameters<T> | undefined> {
+		const jobIndex = this.jobs.findIndex(
 			job =>
 				job.name === jobName &&
 				!job.disabled &&
@@ -119,41 +129,65 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 					(job.lockedAt && job.lockedAt <= lockDeadline))
 		);
 
-		if (jobToRun) {
-			jobToRun.lockedAt = now;
-			return jobToRun;
+		if (jobIndex !== -1) {
+			this.jobs[jobIndex].lockedAt = now;
+			return this.jobs[jobIndex];
 		}
+
 		return undefined;
 	}
 
 	async saveJobState(job: Job<any>): Promise<void> {
-		const jobIndex = this.jobs.findIndex(j => j.id === job.attrs.id);
-		if (jobIndex !== -1) {
-			this.jobs[jobIndex] = { ...this.jobs[jobIndex], ...job.attrs };
+		const existingJobIndex = this.jobs.findIndex(
+			j => j.id === job.attrs.id || j.name === job.attrs.name
+		);
+
+		if (existingJobIndex !== -1) {
+			this.jobs[existingJobIndex] = JobParameters.fromObject({
+				...this.jobs[existingJobIndex].toObject(),
+				...job.attrs
+			});
 		}
 	}
 
 	async saveJob<DATA = unknown>(
 		job: Job<DATA>,
 		lastModifiedBy?: string
-	): Promise<{ job: Job<DATA>; result: IJobParameters<DATA> | null }> {
-		const existingJobIndex = this.jobs.findIndex(j => j.id === job.attrs.id);
+	): Promise<{ job: Job<DATA>; result: JobParameters<DATA> | null }> {
+		let existingJobIndex = job.attrs.id ? this.jobs.findIndex(j => j.id === job.attrs.id) : -1;
 
-		if (existingJobIndex !== -1) {
-			this.jobs[existingJobIndex] = {
-				...this.jobs[existingJobIndex],
-				...job.attrs,
-				lastModifiedBy
-			};
-			return { job, result: this.jobs[existingJobIndex] as IJobParameters<DATA> };
+		if (existingJobIndex === -1) {
+			existingJobIndex = this.jobs.findIndex(j => {
+				if (!job.attrs.id && j.name === job.attrs.name) {
+					return j.uniqueHash || job.attrs.uniqueHash
+						? job.attrs.uniqueHash === j.uniqueHash
+						: false;
+				}
+
+				return false;
+			});
 		}
 
-		const newJob = {
+		if (existingJobIndex !== -1) {
+			if (!job.attrs.uniqueOpts?.insertOnly) {
+				this.jobs[existingJobIndex] = JobParameters.fromObject({
+					...this.jobs[existingJobIndex].toObject(),
+					...job.attrs,
+					lastModifiedBy
+				});
+			}
+
+			return { job, result: this.jobs[existingJobIndex] };
+		}
+
+		const newJob = JobParameters.fromObject({
 			...job.attrs,
 			id: crypto.randomUUID(),
 			lastModifiedBy
-		} as IJobParameters<DATA>;
+		});
+
 		this.jobs.push(newJob);
+
 		return { job, result: newJob };
 	}
 }

@@ -4,7 +4,7 @@ import date from 'date.js';
 import debug from 'debug';
 import type { Agenda } from './Agenda';
 import type { DefinitionProcessor } from './types/JobDefinition';
-import { datefields, IJobParameters, TJobDatefield } from './types/JobParameters';
+import { datefields, IJobParameters, JobParameters, TJobDatefield } from './types/JobParameters';
 import { computeFromInterval, computeFromRepeatAt } from './utils/nextRunAt';
 import { JobPriority, parsePriority } from './utils/priority';
 
@@ -14,7 +14,7 @@ const log = debug('agenda:job');
  * @class
  */
 export class Job<DATA = unknown | void> {
-	readonly attrs: IJobParameters<DATA>;
+	readonly attrs: JobParameters<DATA>;
 
 	/** this flag is set to true, if a job got canceled (e.g. due to a timeout or other exception),
 	 * you can use it for long running tasks to periodically check if canceled is true,
@@ -79,13 +79,13 @@ export class Job<DATA = unknown | void> {
 		private readonly byJobProcessor = false
 	) {
 		// Set attrs to args
-		this.attrs = {
+		this.attrs = JobParameters.fromObject({
 			...args,
 			// Set defaults if undefined
 			priority: parsePriority(args.priority),
 			nextRunAt: args.nextRunAt === undefined ? new Date() : args.nextRunAt,
 			type: args.type
-		};
+		});
 	}
 
 	/**
