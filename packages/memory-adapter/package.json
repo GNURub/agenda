@@ -38,7 +38,7 @@
     "url": "https://github.com/hokify/agenda/issues"
   },
   "dependencies": {
-    "@agenda/agenda": "*",
+    "@agenda/agenda": "workspace:*",
     "debug": "~4.3.5"
   }
 }

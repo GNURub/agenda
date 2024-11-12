@@ -1,5 +1,5 @@
 import { Agenda } from '@agenda/agenda';
-import { AgendaMongoAdapter } from '@agenda/mongodb-adapter';
+import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
 
 process.on('message', message => {
 	if (message === 'cancel') {
@@ -20,7 +20,7 @@ process.on('message', message => {
 
 	// initialize Agenda in "forkedWorker" mode
 	const agenda = new Agenda({ name: `subworker-${name}`, forkedWorker: true });
-	const mongoAdapter = new AgendaMongoAdapter({ db: { address: process.env.DB_CONNECTION! } });
+	const mongoAdapter = new AgendaMemoryAdapter();
 	// connect agenda (but do not start it)
 	await agenda.setAdapter(mongoAdapter);
 

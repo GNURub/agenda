@@ -8,7 +8,36 @@ import {
 } from '@agenda/agenda';
 
 export class AgendaMemoryAdapter implements AgendaDBAdapter {
-	private jobs: JobParameters<any>[] = [];
+	private _jobs: JobParameters<any>[] = [];
+	private sortOptions: { [key: string]: 1 | -1 };
+
+	get jobs(): JobParameters<any>[] {
+		return this._jobs;
+	}
+
+	set jobs(jobs: JobParameters<any>[]) {
+		this._jobs = this.sortJobs(jobs);
+	}
+
+	constructor(options?: {
+		sort?: {
+			[key: string]: 1 | -1;
+		};
+	}) {
+		this.sortOptions = options?.sort || { nextRunAt: 1, priority: -1 };
+	}
+
+	private sortJobs<T>(jobs: JobParameters<T>[]): JobParameters<T>[] {
+		return jobs.sort((a, b) => {
+			for (const [field, order] of Object.entries(this.sortOptions)) {
+				// @ts-ignore
+				if (a[field] < b[field]) return -1 * order;
+				// @ts-ignore
+				if (a[field] > b[field]) return 1 * order;
+			}
+			return 0;
+		});
+	}
 
 	async connect(): Promise<void> {}
 
@@ -89,17 +118,19 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 	}
 
 	async unlockJob(jobId: string): Promise<void> {
-		const job = this.jobs.find(job => job.id === jobId);
-		if (job) {
-			job.lockedAt = undefined;
+		const jobIndex = this.jobs.findIndex(job => job.id === jobId);
+		if (jobIndex !== -1) {
+			this.jobs[jobIndex].lockedAt = undefined;
 		}
 	}
 
 	async unlockJobs(jobIds: string[]): Promise<void> {
-		this.jobs.forEach(job => {
+		this.jobs = this.jobs.map(job => {
 			if (jobIds.includes(job.id!)) {
 				job.lockedAt = undefined;
 			}
+
+			return job;
 		});
 	}
 
@@ -186,7 +217,7 @@ export class AgendaMemoryAdapter implements AgendaDBAdapter {
 			lastModifiedBy
 		});
 
-		this.jobs.push(newJob);
+		this.jobs = [...this.jobs, newJob];
 
 		return { job, result: newJob };
 	}

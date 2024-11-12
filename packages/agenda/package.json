@@ -1,7 +1,7 @@
 {
   "name": "@agenda/agenda",
   "version": "6.0.0-rc",
-  "description": "Adapter for Agenda to use the Mongodb as a persistance layer",
+  "description": "Agenda is a light-weight job scheduling library for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "publishConfig": {

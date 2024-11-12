@@ -1,15 +1,17 @@
 import { Agenda, Job, type AgendaDBAdapter } from '@agenda/agenda';
 import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
-import { fail } from 'assert';
+import assert, { fail } from 'assert';
+import cp from 'child_process';
 import delay from 'delay';
 import { DateTime } from 'luxon';
+import path from 'path';
 import sinon from 'sinon';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import someJobDefinition from './fixtures/someJobDefinition';
 
 // Create agenda instances
 let agenda: Agenda;
-// connection string to mongodb
-let mongoCfg: string;
+
 // mongo db connection db instance
 let adapter: AgendaDBAdapter;
 
@@ -1093,715 +1095,712 @@ describe('Job', () => {
 		});
 	});
 
-	// describe('job concurrency', () => {
-	// 	test('should not block a job for concurrency of another job', async () => {
-	// 		agenda.processEvery(50);
-
-	// 		const processed: number[] = [];
-	// 		const now = Date.now();
-
-	// 		agenda.define(
-	// 			'blocking',
-	// 			(job, cb) => {
-	// 				processed.push(job.attrs.data.i);
-	// 				setTimeout(cb, 400);
-	// 			},
-	// 			{
-	// 				concurrency: 1
-	// 			}
-	// 		);
-
-	// 		const checkResultsPromise = new Promise<number[]>(resolve => {
-	// 			agenda.define(
-	// 				'non-blocking',
-	// 				job => {
-	// 					processed.push(job.attrs.data.i);
-	// 					resolve(processed);
-	// 				},
-	// 				{
-	// 					// Lower priority to keep it at the back in the queue
-	// 					priority: 'lowest'
-	// 				}
-	// 			);
-	// 		});
-
-	// 		let finished = false;
-	// 		agenda.on('complete', () => {
-	// 			if (!finished && processed.length === 3) {
-	// 				finished = true;
-	// 			}
-	// 		});
-
-	// 		agenda.start();
-
-	// 		await Promise.all([
-	// 			agenda.schedule(new Date(now + 100), 'blocking', { i: 1 }),
-	// 			agenda.schedule(new Date(now + 101), 'blocking', { i: 2 }),
-	// 			agenda.schedule(new Date(now + 102), 'non-blocking', { i: 3 })
-	// 		]);
-
-	// 		try {
-	// 			const results: number[] = await Promise.race([
-	// 				checkResultsPromise,
-	// 				// eslint-disable-next-line prefer-promise-reject-errors
-	// 				new Promise<number[]>((_, reject) => {
-	// 					setTimeout(() => {
-	// 						reject(`not processed`);
-	// 					}, 2000);
-	// 				})
-	// 			]);
-	// 			expect(results).toEqual(expect.not.arrayContaining([2]));
-	// 		} catch (err) {
-	// 			console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
-	// 			throw err;
-	// 		}
-	// 	});
-
-	// 	test('should run jobs as first in first out (FIFO)', async () => {
-	// 		agenda.processEvery(100);
-	// 		agenda.define('fifo', (_job, cb) => cb(), { concurrency: 1 });
-
-	// 		const checkResultsPromise = new Promise<number[]>(resolve => {
-	// 			const results: number[] = [];
-
-	// 			agenda.on('start:fifo', job => {
-	// 				results.push(new Date(job.attrs.nextRunAt!).getTime());
-	// 				if (results.length !== 3) {
-	// 					return;
-	// 				}
-
-	// 				resolve(results);
-	// 			});
-	// 		});
-
-	// 		await agenda.start();
-
-	// 		await agenda.now('fifo');
-	// 		await delay(50);
-	// 		await agenda.now('fifo');
-	// 		await delay(50);
-	// 		await agenda.now('fifo');
-	// 		await delay(50);
-	// 		try {
-	// 			const results: number[] = await Promise.race([
-	// 				checkResultsPromise,
-	// 				// eslint-disable-next-line prefer-promise-reject-errors
-	// 				new Promise<number[]>((_, reject) => {
-	// 					setTimeout(() => {
-	// 						reject(`not processed`);
-	// 					}, 2000);
-	// 				})
-	// 			]);
-	// 			expect(results.join('')).toEqual(results.sort().join(''));
-	// 		} catch (err) {
-	// 			console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
-	// 			throw err;
-	// 		}
-	// 	});
-
-	// 	test('should run jobs as first in first out (FIFO) with respect to priority', async () => {
-	// 		const now = Date.now();
-
-	// 		agenda.define('fifo-priority', (_job, cb) => setTimeout(cb, 100), { concurrency: 1 });
-
-	// 		const checkResultsPromise = new Promise(resolve => {
-	// 			const times: number[] = [];
-	// 			const priorities: number[] = [];
-
-	// 			agenda.on('start:fifo-priority', job => {
-	// 				priorities.push(job.attrs.priority);
-	// 				times.push(new Date(job.attrs.lastRunAt!).getTime());
-	// 				if (priorities.length !== 3 || times.length !== 3) {
-	// 					return;
-	// 				}
-
-	// 				resolve({ times, priorities });
-	// 			});
-	// 		});
-
-	// 		await Promise.all([
-	// 			agenda.create('fifo-priority', { i: 1 }).schedule(new Date(now)).priority('high').save(),
-	// 			agenda
-	// 				.create('fifo-priority', { i: 2 })
-	// 				.schedule(new Date(now + 100))
-	// 				.priority('low')
-	// 				.save(),
-	// 			agenda
-	// 				.create('fifo-priority', { i: 3 })
-	// 				.schedule(new Date(now + 100))
-	// 				.priority('high')
-	// 				.save()
-	// 		]);
-	// 		await agenda.start();
-	// 		try {
-	// 			const { times, priorities } = await Promise.race<any>([
-	// 				checkResultsPromise,
-	// 				// eslint-disable-next-line prefer-promise-reject-errors
-	// 				new Promise<any>((_, reject) => {
-	// 					setTimeout(() => {
-	// 						reject(`not processed`);
-	// 					}, 2000);
-	// 				})
-	// 			]);
-
-	// 			expect(times.join('')).toEqual(times.sort().join(''));
-	// 			expect(priorities).toEqual([10, 10, -10]);
-	// 		} catch (err) {
-	// 			console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
-	// 			throw err;
-	// 		}
-	// 	});
-
-	// 	test('should run higher priority jobs first', async () => {
-	// 		// Inspired by tests added by @lushc here:
-	// 		// <https://github.com/agenda/agenda/pull/451/commits/336ff6445803606a6dc468a6f26c637145790adc>
-	// 		const now = new Date();
-
-	// 		agenda.define('priority', (_job, cb) => setTimeout(cb, 10), { concurrency: 1 });
-
-	// 		const checkResultsPromise = new Promise(resolve => {
-	// 			const results: number[] = [];
-
-	// 			agenda.on('start:priority', job => {
-	// 				results.push(job.attrs.priority);
-	// 				if (results.length !== 3) {
-	// 					return;
-	// 				}
-
-	// 				resolve(results);
-	// 			});
-	// 		});
-
-	// 		await Promise.all([
-	// 			agenda.create('priority').schedule(now).save(),
-	// 			agenda.create('priority').schedule(now).priority('low').save(),
-	// 			agenda.create('priority').schedule(now).priority('high').save()
-	// 		]);
-	// 		await agenda.start();
-	// 		try {
-	// 			const results = await Promise.race([
-	// 				checkResultsPromise,
-	// 				// eslint-disable-next-line prefer-promise-reject-errors
-	// 				new Promise((_, reject) => {
-	// 					setTimeout(() => {
-	// 						reject(`not processed`);
-	// 					}, 2000);
-	// 				})
-	// 			]);
-	// 			expect(results).toEqual([10, 0, -10]);
-	// 		} catch (err) {
-	// 			console.log('stats', JSON.stringify(await agenda.getRunningStats(), undefined, 3));
-	// 			throw err;
-	// 		}
-	// 	});
-	// });
-
-	// describe('every running', () => {
-	// 	beforeEach(async () => {
-	// 		agenda.defaultConcurrency(1);
-	// 		agenda.processEvery(5);
-
-	// 		await agenda.stop();
-	// 	});
-
-	// 	test('should run the same job multiple times', async () => {
-	// 		let counter = 0;
-
-	// 		agenda.define('everyRunTest1', (_job, cb) => {
-	// 			if (counter < 2) {
-	// 				counter++;
-	// 			}
-
-	// 			cb();
-	// 		});
-
-	// 		await agenda.every(10, 'everyRunTest1');
-
-	// 		await agenda.start();
-
-	// 		await agenda.jobs({ name: 'everyRunTest1' });
-	// 		await delay(jobTimeout);
-	// 		expect(counter).toBe(2);
-
-	// 		await agenda.stop();
-	// 	});
-
-	// 	test('should reuse the same job on multiple runs', async () => {
-	// 		let counter = 0;
-
-	// 		agenda.define('everyRunTest2', (_job, cb) => {
-	// 			if (counter < 2) {
-	// 				counter++;
-	// 			}
-
-	// 			cb();
-	// 		});
-	// 		await agenda.every(10, 'everyRunTest2');
-
-	// 		await agenda.start();
-
-	// 		await delay(jobTimeout);
-	// 		const result = await agenda.jobs({ name: 'everyRunTest2' });
-
-	// 		expect(result).toHaveLength(1);
-	// 		await agenda.stop();
-	// 	});
-	// });
-
-	// describe('Integration Tests', () => {
-	// 	describe('.every()', () => {
-	// 		test('Should not rerun completed jobs after restart', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				let i = 0;
-
-	// 				const serviceError = function (e: any) {
-	// 					done(e);
-	// 				};
-
-	// 				const receiveMessage = function (msg: any) {
-	// 					if (msg === 'ran') {
-	// 						expect(i).toBe(0);
-	// 						i += 1;
-	// 						// eslint-disable-next-line @typescript-eslint/no-use-before-define
-	// 						startService();
-	// 					} else if (msg === 'notRan') {
-	// 						expect(i).toBe(1);
-	// 						done();
-	// 					} else {
-	// 						reject(new Error('Unexpected response returned!'));
-	// 					}
-	// 				};
-
-	// 				const startService = () => {
-	// 					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 					const n = cp.fork(serverPath, [mongoCfg, 'daily'], {
-	// 						execArgv: ['-r', 'ts-node/register']
-	// 					});
-
-	// 					n.on('message', receiveMessage);
-	// 					n.on('error', serviceError);
-	// 				};
-
-	// 				startService();
-	// 			}));
-
-	// 		test('Should properly run jobs when defined via an array', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				{
-	// 					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 					const n = cp.fork(serverPath, [mongoCfg, 'daily-array'], {
-	// 						execArgv: ['-r', 'ts-node/register']
-	// 					});
-
-	// 					let ran1 = false;
-	// 					let ran2 = false;
-	// 					let doneCalled = false;
-
-	// 					const serviceError = function (e: any) {
-	// 						done(e);
-	// 					};
-
-	// 					const receiveMessage = function (msg: any) {
-	// 						if (msg === 'test1-ran') {
-	// 							ran1 = true;
-	// 							if (ran1 && ran2 && !doneCalled) {
-	// 								doneCalled = true;
-	// 								done();
-	// 								n.send('exit');
-	// 							}
-	// 						} else if (msg === 'test2-ran') {
-	// 							ran2 = true;
-	// 							if (ran1 && ran2 && !doneCalled) {
-	// 								doneCalled = true;
-	// 								done();
-	// 								n.send('exit');
-	// 							}
-	// 						} else if (!doneCalled) {
-	// 							reject(new Error('Jobs did not run!'));
-	// 						}
-	// 					};
-
-	// 					n.on('message', receiveMessage);
-	// 					n.on('error', serviceError);
-	// 				}
-	// 			}));
-
-	// 		test('should not run if job is disabled', async () => {
-	// 			let counter = 0;
-
-	// 			agenda.define('everyDisabledTest', (_job, cb) => {
-	// 				counter++;
-	// 				cb();
-	// 			});
-
-	// 			const job = await agenda.every(10, 'everyDisabledTest');
-
-	// 			job.disable();
-
-	// 			await job.save();
-	// 			await agenda.start();
-
-	// 			await delay(jobTimeout);
-	// 			await agenda.jobs({ name: 'everyDisabledTest' });
-	// 			expect(counter).toBe(0);
-	// 			await agenda.stop();
-	// 		});
-	// 	});
-
-	// 	describe('schedule()', () => {
-	// 		test('Should not run jobs scheduled in the future', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				let i = 0;
-
-	// 				const serviceError = function (e: any) {
-	// 					done(e);
-	// 				};
-
-	// 				const receiveMessage = function (msg: any) {
-	// 					if (msg === 'notRan') {
-	// 						if (i < 5) {
-	// 							done();
-	// 							return;
-	// 						}
-
-	// 						i += 1;
-	// 						// eslint-disable-next-line @typescript-eslint/no-use-before-define
-	// 						startService();
-	// 					} else {
-	// 						reject(new Error('Job scheduled in future was ran!'));
-	// 					}
-	// 				};
-
-	// 				const startService = () => {
-	// 					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 					const n = cp.fork(serverPath, [mongoCfg, 'define-future-job'], {
-	// 						execArgv: ['-r', 'ts-node/register']
-	// 					});
-
-	// 					n.on('message', receiveMessage);
-	// 					n.on('error', serviceError);
-	// 				};
-
-	// 				startService();
-	// 			}));
-
-	// 		test('Should run past due jobs when process starts', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				const serviceError = function (e: any) {
-	// 					done(e);
-	// 				};
-
-	// 				const receiveMessage = function (msg: any) {
-	// 					if (msg === 'ran') {
-	// 						done();
-	// 					} else {
-	// 						reject(new Error('Past due job did not run!'));
-	// 					}
-	// 				};
-
-	// 				const startService = () => {
-	// 					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 					const n = cp.fork(serverPath, [mongoCfg, 'define-past-due-job'], {
-	// 						execArgv: ['-r', 'ts-node/register']
-	// 					});
-
-	// 					n.on('message', receiveMessage);
-	// 					n.on('error', serviceError);
-	// 				};
-
-	// 				startService();
-	// 			}));
-
-	// 		test('Should schedule using array of names', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 				const n = cp.fork(serverPath, [mongoCfg, 'schedule-array'], {
-	// 					execArgv: ['-r', 'ts-node/register']
-	// 				});
-
-	// 				let ran1 = false;
-	// 				let ran2 = false;
-	// 				let doneCalled = false;
-
-	// 				const serviceError = (err: any) => {
-	// 					done(err);
-	// 				};
-
-	// 				const receiveMessage = (msg: any) => {
-	// 					if (msg === 'test1-ran') {
-	// 						ran1 = true;
-	// 						if (ran1 && ran2 && !doneCalled) {
-	// 							doneCalled = true;
-	// 							done();
-	// 							n.send('exit');
-	// 						}
-	// 					} else if (msg === 'test2-ran') {
-	// 						ran2 = true;
-	// 						if (ran1 && ran2 && !doneCalled) {
-	// 							doneCalled = true;
-	// 							done();
-	// 							n.send('exit');
-	// 						}
-	// 					} else if (!doneCalled) {
-	// 						reject(new Error('Jobs did not run!'));
-	// 					}
-	// 				};
-
-	// 				n.on('message', receiveMessage);
-	// 				n.on('error', serviceError);
-	// 			}));
-	// 	});
-
-	// 	describe('now()', () => {
-	// 		test('Should immediately run the job', () =>
-	// 			new Promise<void>((done, reject) => {
-	// 				const serviceError = function (e: any) {
-	// 					done(e);
-	// 				};
-
-	// 				const receiveMessage = function (msg: any) {
-	// 					if (msg === 'ran') {
-	// 						return done();
-	// 					}
-
-	// 					return reject(new Error('Job did not immediately run!'));
-	// 				};
-
-	// 				const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
-	// 				const n = cp.fork(serverPath, [mongoCfg, 'now'], {
-	// 					execArgv: ['-r', 'ts-node/register']
-	// 				});
-
-	// 				n.on('message', receiveMessage);
-	// 				n.on('error', serviceError);
-	// 			}));
-	// 	});
-
-	// 	describe('General Integration', () => {
-	// 		test('Should not run a job that has already been run', async () => {
-	// 			const runCount: any = {};
-
-	// 			agenda.define('test-job', (job, cb) => {
-	// 				const id = job.attrs.id!.toString();
-
-	// 				runCount[id] = runCount[id] ? runCount[id] + 1 : 1;
-	// 				cb();
-	// 			});
-
-	// 			agenda.processEvery(100);
-	// 			await agenda.start();
-
-	// 			await Promise.all([...new Array(10)].map(() => agenda.now('test-job')));
-
-	// 			await delay(jobTimeout);
-	// 			const ids = Object.keys(runCount);
-	// 			expect(ids).toHaveLength(10);
-	// 			Object.keys(runCount).forEach(id => {
-	// 				expect(runCount[id]).toBe(1);
-	// 			});
-	// 		});
-	// 	});
-	// });
-
-	// test('checks database for running job on "client"', async () => {
-	// 	agenda.define('test', async () => {
-	// 		await new Promise(resolve => {
-	// 			setTimeout(resolve, 30000);
-	// 		});
-	// 	});
-
-	// 	const job = await agenda.now('test');
-	// 	await agenda.start();
-
-	// 	await new Promise(resolve => {
-	// 		agenda.on('start:test', resolve);
-	// 	});
-
-	// 	expect(await job.isRunning()).toBe(true);
-	// });
-
-	// test('should not run job if is has been removed', async () => {
-	// 	let executed = false;
-	// 	agenda.define('test', async () => {
-	// 		executed = true;
-	// 	});
-
-	// 	const job = new Job(agenda, {
-	// 		name: 'test',
-	// 		type: 'normal'
-	// 	});
-	// 	job.schedule('in 1 second');
-	// 	await job.save();
-
-	// 	await agenda.start();
-
-	// 	let jobStarted;
-	// 	let retried = 0;
-	// 	// wait till it's locked (Picked up by the event processor)
-	// 	do {
-	// 		jobStarted = await agenda.db.getJobs({ name: 'test' });
-	// 		if (!jobStarted[0].lockedAt) {
-	// 			delay(100);
-	// 		}
-	// 		retried++;
-	// 	} while (!jobStarted[0].lockedAt || retried > 10);
-
-	// 	expect(jobStarted[0].lockedAt).toBeDefined(); // .equal(null);
-
-	// 	await job.remove();
-
-	// 	let error: Error | undefined;
-	// 	const completed = new Promise<void>(resolve => {
-	// 		agenda.on('error', err => {
-	// 			error = err;
-	// 			resolve();
-	// 		});
-	// 	});
-
-	// 	await Promise.race([
-	// 		new Promise<void>(resolve => {
-	// 			setTimeout(() => {
-	// 				resolve();
-	// 			}, 1000);
-	// 		}),
-	// 		completed
-	// 	]);
-
-	// 	expect(executed).toBe(false);
-	// 	assert.ok(typeof error !== 'undefined');
-	// 	expect(error.message).toEqual(
-	// 		expect.arrayContaining(['(name: test) cannot be updated in the database'])
-	// 	);
-	// });
-
-	// describe('job fork mode', () => {
-	// 	test('runs a job in fork mode', async () => {
-	// 		const agendaFork = new Agenda({
-	// 			adapter,
-	// 			forkHelper: {
-	// 				path: './test/helpers/forkHelper.ts',
-	// 				options: {
-	// 					env: { DB_CONNECTION: mongoCfg },
-	// 					execArgv: ['-r', 'ts-node/register']
-	// 				}
-	// 			}
-	// 		});
-
-	// 		expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
-
-	// 		const job = agendaFork.create('some job');
-	// 		job.forkMode(true);
-	// 		job.schedule('now');
-	// 		await job.save();
-
-	// 		const jobData = await agenda.db.getJobById(job.attrs.id as any);
-
-	// 		if (!jobData) {
-	// 			throw new Error('job not found');
-	// 		}
-
-	// 		expect(jobData.fork).toBe(true);
-
-	// 		// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
-	// 		someJobDefinition(agendaFork);
-
-	// 		await agendaFork.start();
-
-	// 		do {
-	// 			// console.log('.');
-	// 			await delay(50);
-	// 		} while (await job.isRunning());
-
-	// 		const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-	// 		expect(jobDataFinished?.lastFinishedAt).toBeDefined();
-	// 		expect(jobDataFinished?.failReason).toBe(null);
-	// 		expect(jobDataFinished?.failCount).toBe(null);
-	// 	});
-
-	// 	test('runs a job in fork mode, but let it fail', async () => {
-	// 		const agendaFork = new Agenda({
-	// 			adapter,
-	// 			forkHelper: {
-	// 				path: './test/helpers/forkHelper.ts',
-	// 				options: {
-	// 					env: { DB_CONNECTION: mongoCfg },
-	// 					execArgv: ['-r', 'ts-node/register']
-	// 				}
-	// 			}
-	// 		});
-
-	// 		expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
-
-	// 		const job = agendaFork.create('some job', { failIt: 'error' });
-	// 		job.forkMode(true);
-	// 		job.schedule('now');
-	// 		await job.save();
-
-	// 		const jobData = await agenda.db.getJobById(job.attrs.id as any);
-
-	// 		if (!jobData) {
-	// 			throw new Error('job not found');
-	// 		}
-
-	// 		expect(jobData.fork).toBe(true);
-
-	// 		// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
-	// 		someJobDefinition(agendaFork);
-
-	// 		await agendaFork.start();
-
-	// 		do {
-	// 			// console.log('.');
-	// 			await delay(50);
-	// 		} while (await job.isRunning());
-
-	// 		const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-	// 		expect(jobDataFinished?.lastFinishedAt).toBeDefined();
-	// 		expect(jobDataFinished?.failReason).not.toBe(null);
-	// 		expect(jobDataFinished?.failCount).toBe(1);
-	// 	});
-
-	// 	test('runs a job in fork mode, but let it die', async () => {
-	// 		const agendaFork = new Agenda({
-	// 			adapter,
-	// 			forkHelper: {
-	// 				path: './test/helpers/forkHelper.ts',
-	// 				options: {
-	// 					env: { DB_CONNECTION: mongoCfg },
-	// 					execArgv: ['-r', 'ts-node/register']
-	// 				}
-	// 			}
-	// 		});
-
-	// 		expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
-
-	// 		const job = agendaFork.create('some job', { failIt: 'die' });
-	// 		job.forkMode(true);
-	// 		job.schedule('now');
-	// 		await job.save();
-
-	// 		const jobData = await agenda.db.getJobById(job.attrs.id as any);
-
-	// 		if (!jobData) {
-	// 			throw new Error('job not found');
-	// 		}
-
-	// 		expect(jobData.fork).toBe(true);
-
-	// 		// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
-	// 		someJobDefinition(agendaFork);
-
-	// 		await agendaFork.start();
-
-	// 		do {
-	// 			// console.log('.');
-	// 			await delay(50);
-	// 		} while (await job.isRunning());
-
-	// 		const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
-	// 		expect(jobDataFinished?.lastFinishedAt).toBeDefined();
-	// 		expect(jobDataFinished?.failReason).not.toBe(null);
-	// 		expect(jobDataFinished?.failCount).toBe(1);
-	// 	});
-	// });
+	describe('job concurrency', () => {
+		test('should not block a job for concurrency of another job', async () => {
+			agenda.processEvery(50);
+
+			const processed: number[] = [];
+			const now = Date.now();
+
+			agenda.define(
+				'blocking',
+				(job, cb) => {
+					processed.push(job.attrs.data.i);
+					setTimeout(cb, 400);
+				},
+				{
+					concurrency: 1
+				}
+			);
+
+			const checkResultsPromise = new Promise<number[]>(resolve => {
+				agenda.define(
+					'non-blocking',
+					job => {
+						processed.push(job.attrs.data.i);
+						resolve(processed);
+					},
+					{
+						// Lower priority to keep it at the back in the queue
+						priority: 'lowest'
+					}
+				);
+			});
+
+			let finished = false;
+			agenda.on('complete', () => {
+				if (!finished && processed.length === 3) {
+					finished = true;
+				}
+			});
+
+			agenda.start();
+
+			await Promise.all([
+				agenda.schedule(new Date(now + 100), 'blocking', { i: 1 }),
+				agenda.schedule(new Date(now + 101), 'blocking', { i: 2 }),
+				agenda.schedule(new Date(now + 102), 'non-blocking', { i: 3 })
+			]);
+
+			try {
+				const results: number[] = await Promise.race([
+					checkResultsPromise,
+					// eslint-disable-next-line prefer-promise-reject-errors
+					new Promise<number[]>((_, reject) => {
+						setTimeout(() => {
+							reject(`not processed`);
+						}, 2000);
+					})
+				]);
+				expect(results).toEqual(expect.not.arrayContaining([2]));
+			} catch (err) {
+				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
+				throw err;
+			}
+		});
+
+		test('should run jobs as first in first out (FIFO)', async () => {
+			agenda.processEvery(100);
+			agenda.define('fifo', (_job, cb) => cb(), { concurrency: 1 });
+
+			const checkResultsPromise = new Promise<number[]>(resolve => {
+				const results: number[] = [];
+
+				agenda.on('start:fifo', job => {
+					results.push(new Date(job.attrs.nextRunAt!).getTime());
+					if (results.length !== 3) {
+						return;
+					}
+
+					resolve(results);
+				});
+			});
+
+			await agenda.start();
+
+			await agenda.now('fifo');
+			await delay(50);
+			await agenda.now('fifo');
+			await delay(50);
+			await agenda.now('fifo');
+			await delay(50);
+			try {
+				const results: number[] = await Promise.race([
+					checkResultsPromise,
+					// eslint-disable-next-line prefer-promise-reject-errors
+					new Promise<number[]>((_, reject) => {
+						setTimeout(() => {
+							reject(`not processed`);
+						}, 2000);
+					})
+				]);
+				expect(results.join('')).toEqual(results.sort().join(''));
+			} catch (err) {
+				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
+				throw err;
+			}
+		});
+
+		test('should run jobs as first in first out (FIFO) with respect to priority', async () => {
+			const now = Date.now();
+
+			agenda.define('fifo-priority', (_job, cb) => setTimeout(cb, 100), { concurrency: 1 });
+
+			const checkResultsPromise = new Promise(resolve => {
+				const times: number[] = [];
+				const priorities: number[] = [];
+
+				agenda.on('start:fifo-priority', job => {
+					priorities.push(job.attrs.priority);
+					times.push(new Date(job.attrs.lastRunAt!).getTime());
+					if (priorities.length !== 3 || times.length !== 3) {
+						return;
+					}
+
+					resolve({ times, priorities });
+				});
+			});
+
+			await Promise.all([
+				agenda.create('fifo-priority', { i: 1 }).schedule(new Date(now)).priority('high').save(),
+				agenda
+					.create('fifo-priority', { i: 2 })
+					.schedule(new Date(now + 100))
+					.priority('low')
+					.save(),
+				agenda
+					.create('fifo-priority', { i: 3 })
+					.schedule(new Date(now + 100))
+					.priority('high')
+					.save()
+			]);
+			await agenda.start();
+			try {
+				const { times, priorities } = await Promise.race<any>([
+					checkResultsPromise,
+					// eslint-disable-next-line prefer-promise-reject-errors
+					new Promise<any>((_, reject) => {
+						setTimeout(() => {
+							reject(`not processed`);
+						}, 2000);
+					})
+				]);
+
+				expect(times.join('')).toEqual(times.sort().join(''));
+				expect(priorities).toEqual([10, 10, -10]);
+			} catch (err) {
+				console.log('stats', err, JSON.stringify(await agenda.getRunningStats(), undefined, 3));
+				throw err;
+			}
+		});
+
+		test('should run higher priority jobs first', async () => {
+			// Inspired by tests added by @lushc here:
+			// <https://github.com/agenda/agenda/pull/451/commits/336ff6445803606a6dc468a6f26c637145790adc>
+			const now = new Date();
+
+			agenda.define('priority', (_job, cb) => setTimeout(cb, 10), { concurrency: 1 });
+
+			const checkResultsPromise = new Promise(resolve => {
+				const results: number[] = [];
+
+				agenda.on('start:priority', job => {
+					results.push(job.attrs.priority);
+					if (results.length !== 3) {
+						return;
+					}
+
+					resolve(results);
+				});
+			});
+
+			await Promise.all([
+				agenda.create('priority').schedule(now).save(),
+				agenda.create('priority').schedule(now).priority('low').save(),
+				agenda.create('priority').schedule(now).priority('high').save()
+			]);
+			await agenda.start();
+			try {
+				const results = await Promise.race([
+					checkResultsPromise,
+					// eslint-disable-next-line prefer-promise-reject-errors
+					new Promise((_, reject) => {
+						setTimeout(() => {
+							reject(`not processed`);
+						}, 2000);
+					})
+				]);
+				expect(results).toEqual([10, 0, -10]);
+			} catch (err) {
+				console.log('stats', JSON.stringify(await agenda.getRunningStats(), undefined, 3));
+				throw err;
+			}
+		});
+	});
+
+	describe('every running', () => {
+		beforeEach(async () => {
+			agenda.defaultConcurrency(1);
+			agenda.processEvery(5);
+
+			await agenda.stop();
+		});
+
+		test('should run the same job multiple times', async () => {
+			let counter = 0;
+
+			agenda.define('everyRunTest1', (_job, cb) => {
+				if (counter < 2) {
+					counter++;
+				}
+
+				cb();
+			});
+
+			await agenda.every(10, 'everyRunTest1');
+
+			await agenda.start();
+
+			await agenda.jobs({ name: 'everyRunTest1' });
+			await delay(jobTimeout);
+			expect(counter).toBe(2);
+
+			await agenda.stop();
+		});
+
+		test('should reuse the same job on multiple runs', async () => {
+			let counter = 0;
+
+			agenda.define('everyRunTest2', (_job, cb) => {
+				if (counter < 2) {
+					counter++;
+				}
+
+				cb();
+			});
+			await agenda.every(10, 'everyRunTest2');
+
+			await agenda.start();
+
+			await delay(jobTimeout);
+			const result = await agenda.jobs({ name: 'everyRunTest2' });
+
+			expect(result).toHaveLength(1);
+			await agenda.stop();
+		});
+	});
+
+	describe('Integration Tests', () => {
+		describe('.every()', () => {
+			test('Should not rerun completed jobs after restart', () =>
+				new Promise<void>((done, reject) => {
+					let i = 0;
+
+					const serviceError = function (e: any) {
+						done(e);
+					};
+
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							expect(i).toBe(0);
+							i += 1;
+							// eslint-disable-next-line @typescript-eslint/no-use-before-define
+							startService();
+						} else if (msg === 'notRan') {
+							expect(i).toBe(1);
+							done();
+						} else {
+							reject(new Error('Unexpected response returned!'));
+						}
+					};
+
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, ['test', 'daily'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			test('Should properly run jobs when defined via an array', () =>
+				new Promise<void>((done, reject) => {
+					{
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, ['daily-array'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						let ran1 = false;
+						let ran2 = false;
+						let doneCalled = false;
+
+						const serviceError = function (e: any) {
+							done(e);
+						};
+
+						const receiveMessage = function (msg: any) {
+							if (msg === 'test1-ran') {
+								ran1 = true;
+								if (ran1 && ran2 && !doneCalled) {
+									doneCalled = true;
+									done();
+									n.send('exit');
+								}
+							} else if (msg === 'test2-ran') {
+								ran2 = true;
+								if (ran1 && ran2 && !doneCalled) {
+									doneCalled = true;
+									done();
+									n.send('exit');
+								}
+							} else if (!doneCalled) {
+								reject(new Error('Jobs did not run!'));
+							}
+						};
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					}
+				}));
+
+			test('should not run if job is disabled', async () => {
+				let counter = 0;
+
+				agenda.define('everyDisabledTest', (_job, cb) => {
+					counter++;
+					cb();
+				});
+
+				const job = await agenda.every(10, 'everyDisabledTest');
+
+				job.disable();
+
+				await job.save();
+				await agenda.start();
+
+				await delay(jobTimeout);
+				await agenda.jobs({ name: 'everyDisabledTest' });
+				expect(counter).toBe(0);
+				await agenda.stop();
+			});
+		});
+
+		describe('schedule()', () => {
+			test('Should not run jobs scheduled in the future', () =>
+				new Promise<void>((done, reject) => {
+					let i = 0;
+
+					const serviceError = function (e: any) {
+						done(e);
+					};
+
+					const receiveMessage = function (msg: any) {
+						if (msg === 'notRan') {
+							if (i < 5) {
+								done();
+								return;
+							}
+
+							i += 1;
+							// eslint-disable-next-line @typescript-eslint/no-use-before-define
+							startService();
+						} else {
+							reject(new Error('Job scheduled in future was ran!'));
+						}
+					};
+
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, ['define-future-job'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			test('Should run past due jobs when process starts', () =>
+				new Promise<void>((done, reject) => {
+					const serviceError = function (e: any) {
+						done(e);
+					};
+
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							done();
+						} else {
+							reject(new Error('Past due job did not run!'));
+						}
+					};
+
+					const startService = () => {
+						const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+						const n = cp.fork(serverPath, ['define-past-due-job'], {
+							execArgv: ['-r', 'ts-node/register']
+						});
+
+						n.on('message', receiveMessage);
+						n.on('error', serviceError);
+					};
+
+					startService();
+				}));
+
+			test('Should schedule using array of names', () =>
+				new Promise<void>((done, reject) => {
+					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+					const n = cp.fork(serverPath, ['schedule-array'], {
+						execArgv: ['-r', 'ts-node/register']
+					});
+
+					let ran1 = false;
+					let ran2 = false;
+					let doneCalled = false;
+
+					const serviceError = (err: any) => {
+						done(err);
+					};
+
+					const receiveMessage = (msg: any) => {
+						if (msg === 'test1-ran') {
+							ran1 = true;
+							if (ran1 && ran2 && !doneCalled) {
+								doneCalled = true;
+								done();
+								n.send('exit');
+							}
+						} else if (msg === 'test2-ran') {
+							ran2 = true;
+							if (ran1 && ran2 && !doneCalled) {
+								doneCalled = true;
+								done();
+								n.send('exit');
+							}
+						} else if (!doneCalled) {
+							reject(new Error('Jobs did not run!'));
+						}
+					};
+
+					n.on('message', receiveMessage);
+					n.on('error', serviceError);
+				}));
+		});
+
+		describe('now()', () => {
+			test('Should immediately run the job', () =>
+				new Promise<void>((done, reject) => {
+					const serviceError = function (e: any) {
+						done(e);
+					};
+
+					const receiveMessage = function (msg: any) {
+						if (msg === 'ran') {
+							return done();
+						}
+
+						return reject(new Error('Job did not immediately run!'));
+					};
+
+					const serverPath = path.join(__dirname, 'fixtures', 'agenda-instance.ts');
+					const n = cp.fork(serverPath, ['now'], {
+						execArgv: ['-r', 'ts-node/register']
+					});
+
+					n.on('message', receiveMessage);
+					n.on('error', serviceError);
+				}));
+		});
+
+		describe('General Integration', () => {
+			test('Should not run a job that has already been run', async () => {
+				const runCount: any = {};
+
+				agenda.define('test-job', (job, cb) => {
+					const id = job.attrs.id!;
+
+					runCount[id] = runCount[id] ? runCount[id] + 1 : 1;
+					cb();
+				});
+
+				agenda.processEvery(100);
+				await agenda.start();
+
+				await Promise.all([...new Array(10)].map(() => agenda.now('test-job')));
+
+				await delay(jobTimeout);
+				const ids = Object.keys(runCount);
+				expect(ids).toHaveLength(10);
+				Object.keys(runCount).forEach(id => {
+					expect(runCount[id]).toBe(1);
+				});
+			});
+		});
+	});
+
+	test('checks database for running job on "client"', async () => {
+		agenda.define('test', async () => {
+			await new Promise(resolve => {
+				setTimeout(resolve, 30000);
+			});
+		});
+
+		const job = await agenda.now('test');
+		await agenda.start();
+
+		await new Promise(resolve => {
+			agenda.on('start:test', resolve);
+		});
+
+		expect(await job.isRunning()).toBe(true);
+	});
+
+	test('should not run job if is has been removed', async () => {
+		let executed = false;
+		agenda.define('test', async () => {
+			executed = true;
+		});
+
+		const job = new Job(agenda, {
+			name: 'test',
+			type: 'normal'
+		});
+		job.schedule('in 1 second');
+		await job.save();
+
+		await agenda.start();
+
+		let jobStarted;
+		let retried = 0;
+		// wait till it's locked (Picked up by the event processor)
+		do {
+			jobStarted = await agenda.db.getJobs({ name: 'test' });
+			if (!jobStarted[0].lockedAt) {
+				delay(100);
+			}
+			retried++;
+		} while (!jobStarted[0].lockedAt || retried > 10);
+
+		expect(jobStarted[0].lockedAt).toBeDefined(); // .equal(null);
+
+		await job.remove();
+
+		let error: Error | undefined;
+		const completed = new Promise<void>(resolve => {
+			agenda.on('error', err => {
+				error = err;
+				resolve();
+			});
+		});
+
+		await Promise.race([
+			new Promise<void>(resolve => {
+				setTimeout(() => {
+					resolve();
+				}, 1000);
+			}),
+			completed
+		]);
+
+		expect(executed).toBe(false);
+		assert.ok(typeof error !== 'undefined');
+		expect(error.message).toEqual(
+			expect.arrayContaining(['(name: test) cannot be updated in the database'])
+		);
+	});
+
+	describe('job fork mode', () => {
+		test('runs a job in fork mode', async () => {
+			const agendaFork = new Agenda({
+				adapter,
+				forkHelper: {
+					path: './test/helpers/forkHelper.ts',
+					options: {
+						execArgv: ['-r', 'ts-node/register']
+					}
+				}
+			});
+
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
+
+			const job = agendaFork.create('some job');
+			job.forkMode(true);
+			job.schedule('now');
+			await job.save();
+
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
+
+			if (!jobData) {
+				throw new Error('job not found');
+			}
+
+			expect(jobData.fork).toBe(true);
+
+			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
+			someJobDefinition(agendaFork);
+
+			await agendaFork.start();
+
+			do {
+				// console.log('.');
+				await delay(50);
+			} while (await job.isRunning());
+
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).toBe(null);
+			expect(jobDataFinished?.failCount).toBe(null);
+		});
+
+		test('runs a job in fork mode, but let it fail', async () => {
+			const agendaFork = new Agenda({
+				adapter,
+				forkHelper: {
+					path: './test/helpers/forkHelper.ts',
+					options: {
+						execArgv: ['-r', 'ts-node/register']
+					}
+				}
+			});
+
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
+
+			const job = agendaFork.create('some job', { failIt: 'error' });
+			job.forkMode(true);
+			job.schedule('now');
+			await job.save();
+
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
+
+			if (!jobData) {
+				throw new Error('job not found');
+			}
+
+			expect(jobData.fork).toBe(true);
+
+			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
+			someJobDefinition(agendaFork);
+
+			await agendaFork.start();
+
+			do {
+				// console.log('.');
+				await delay(50);
+			} while (await job.isRunning());
+
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).not.toBe(null);
+			expect(jobDataFinished?.failCount).toBe(1);
+		});
+
+		test('runs a job in fork mode, but let it die', async () => {
+			const agendaFork = new Agenda({
+				adapter,
+				forkHelper: {
+					path: './test/helpers/forkHelper.ts',
+					options: {
+						execArgv: ['-r', 'ts-node/register']
+					}
+				}
+			});
+
+			expect(agendaFork.forkHelper?.path).toBe('./test/helpers/forkHelper.ts');
+
+			const job = agendaFork.create('some job', { failIt: 'die' });
+			job.forkMode(true);
+			job.schedule('now');
+			await job.save();
+
+			const jobData = await agenda.db.getJobById(job.attrs.id as any);
+
+			if (!jobData) {
+				throw new Error('job not found');
+			}
+
+			expect(jobData.fork).toBe(true);
+
+			// initialize job definition (keep in a seperate file to have a easier fork mode implementation)
+			someJobDefinition(agendaFork);
+
+			await agendaFork.start();
+
+			do {
+				// console.log('.');
+				await delay(50);
+			} while (await job.isRunning());
+
+			const jobDataFinished = await agenda.db.getJobById(job.attrs.id as any);
+			expect(jobDataFinished?.lastFinishedAt).toBeDefined();
+			expect(jobDataFinished?.failReason).not.toBe(null);
+			expect(jobDataFinished?.failCount).toBe(1);
+		});
+	});
 });

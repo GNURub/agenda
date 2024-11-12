@@ -1,15 +1,10 @@
 import { Agenda } from '@agenda/agenda';
-import { AgendaMongoAdapter } from '@agenda/mongodb-adapter';
+import { AgendaMemoryAdapter } from '@agenda/memory-adapter';
 import addTests from './add-tests';
 
-const connStr = process.argv[2];
-const tests = process.argv.slice(3);
+const tests = process.argv.slice(2);
 
-const adapter = new AgendaMongoAdapter({
-	db: {
-		address: connStr
-	}
-});
+const adapter = new AgendaMemoryAdapter();
 
 const agenda = new Agenda(
 	{
